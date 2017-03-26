@@ -1,0 +1,8 @@
+/**********************************************************//**
+ * @file main.dox
+ * @brief Doxygen file containing instructions for the main
+ * page html layout.
+ * @author Alec Shinomiya
+ * @mainpage
+ * @htmlinclude doxygen/main.html
+ **************************************************************/
