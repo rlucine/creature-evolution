@@ -1,0 +1,26 @@
+# Ignore built files
+*.o
+*.d
+*.gch
+
+# Ignore compiled files
+*.a
+*.exe
+*.dll
+*.out
+
+# Ignore vim stuff
+*.swp
+
+# Ignore LaTeX stuff
+*.aux
+*.synctex.gz
+*.pdf
+
+# Ignore compressed files
+*.tar
+*.tar.gz
+*.zip
+
+# Ignore libraries
+lib
