@@ -81,6 +81,7 @@ typedef struct {
     HEAP heap;                  ///< Heap used to sort organisms.
     void *newborn;              ///< List used to capture all the newborn creatures.
     const void *best;           ///< The best individual in the population.
+    float bestFitness;          ///< The fitness of the best individual.
 } GENETIC;
 
 /**********************************************************//**
@@ -99,6 +100,15 @@ extern bool genetic_Create(GENETIC *data, const GENETIC_REQUEST *request);
  **************************************************************/
 static inline const void *genetic_Best(const GENETIC *data) {
     return data->best;
+}
+
+/**********************************************************//**
+ * @brief Get the best individual in the population.
+ * @param data: Genetic algorithm data.
+ * @return Fitness of the best entity, or INFINITY if invalid.
+ **************************************************************/
+static inline float genetic_BestFitness(const GENETIC *data) {
+    return data->bestFitness;
 }
 
 /**********************************************************//**

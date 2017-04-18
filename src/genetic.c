@@ -11,6 +11,7 @@
 #include <stdbool.h>    // bool
 #include <stdlib.h>     // malloc
 #include <string.h>     // memcpy
+#include <math.h>       // INFINITY
 
 // This project
 #include "debug.h"      // eprintf
@@ -94,6 +95,7 @@ bool genetic_Create(GENETIC *data, const GENETIC_REQUEST *request) {
     
     // Unrelated initialization
     data->best = NULL;
+    data->bestFitness = INFINITY;
     return true;
 }
 
@@ -107,9 +109,9 @@ void genetic_Generation(GENETIC *data) {
     }
     
     // Set the best individual
-    int bestIndex = -1;
-    heap_Top(&data->heap, &bestIndex);
-    data->best = genetic_Entity(data, bestIndex);
+    const HEAP_ELEMENT *best = heap_Top(&data->heap);
+    data->best = genetic_Entity(data, best->payload);
+    data->bestFitness = best->priority;
     
     // Decide what to do with organisms
     // Use this formula for nBreed to ensure half the population
@@ -153,7 +155,7 @@ int genetic_Solve(GENETIC *data, float fitness, int timeout) {
     while (generation < timeout || timeout == TIMEOUT_NONE) {
         genetic_Generation(data);
         generation++;
-        if (data->fitness(data->best) <= fitness) {
+        if (data->bestFitness <= fitness) {
             return generation;
         }
     }
