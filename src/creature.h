@@ -100,6 +100,7 @@ typedef enum {
 typedef struct {
     int nNodes;             ///< Number of distinct nodes.
     int nMuscles;           ///< Number of distinct muscles.
+    float clock;			///< The creature's biological clock.
     
     /// NODE data for one creature.
     NODE nodes[MAX_NODES];

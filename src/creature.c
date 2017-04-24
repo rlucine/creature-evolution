@@ -17,6 +17,8 @@
 /// The system integrator
 static INTEGRAL integrate = &EulerMethod;
 
+#define TIME_STEP 0.01
+
 #define ACTION_DENSITY 0.5
 
 /// Bounciness as a node hits the ground.
@@ -43,6 +45,7 @@ void creature_CreateRandom(CREATURE *creature) {
     // Create random nodes and muscles
     creature->nNodes = randint(MIN_NODES, MAX_NODES);
     creature->nMuscles = randint(creature->nNodes, MAX_MUSCLES);
+    creature->clock = 0.0;
     
     // Generate the random nodes. Assume all nodes reside
     // inside the unit sphere for simplicity.
@@ -206,6 +209,7 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
 		child->nNodes = father->nNodes;
 		child->nMuscles = father->nMuscles;
 	}
+	child->clock = 0.0;
 	
 	// Inherit actual node properties
 	for (int i = 0; i < child->nNodes; i++) {
@@ -364,5 +368,61 @@ void creature_Update(CREATURE *creature, float dt) {
 			node->position.y = 0.0;
 			node->velocity.y *= -RESTITUTION;
 		}
+	}
+}
+
+/*============================================================*
+ * Creature discretized update
+ *============================================================*/
+void creature_UpdateFragmented(CREATURE *creature, float dt) {
+	int fullSteps = (int)(dt / TIME_STEP);
+	float partialStep = fmod(dt, TIME_STEP);
+	for (int i = 0; i < fullSteps; i++) {
+		creature_Update(creature, TIME_STEP);
+	}
+	creature_Update(creature, partialStep);
+}
+
+/*============================================================*
+ * Creature evaluation
+ *============================================================*/
+void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
+	// Get the total number of animation updates within
+	// the given time step.
+	float timeBefore = fmod(creature->clock+ACTION_TIME, ACTION_TIME);
+	int fullActions = (int)(dt / ACTION_TIME);
+	float timeAfter = fmod(creature->clock+dt, ACTION_TIME);
+	
+	// Index into the current behavior
+	int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)*MAX_ACTIONS/BEHAVIOR_TIME);
+	
+	// Animate the current behavior for the remaining "before"
+	// time step, before we flip the action.
+	creature_UpdateFragmented(creature, timeBefore);
+	creature->clock += timeBefore;
+	
+	// Step all subsequent actions
+	float endTime = creature->clock + dt;
+	while (creature->clock < endTime) {
+		// Animate the next step by flipping the contract flag of the
+		// muscle specified in the action stream.
+		int action = creature->behavior[behavior].action[animationIndex];
+		if (action != MUSCLE_NONE) {
+			creature->muscles[action].isContracted = !creature->muscles[action].isContracted;
+		}
+		
+		// Determine if this is a full step or not
+		if (fullActions > 0) {
+			// Doing a full step
+			creature_UpdateFragmented(creature, ACTION_TIME);
+			creature->clock += ACTION_TIME;
+			fullActions--;
+		} else {
+			creature_UpdateFragmented(creature, timeAfter);
+			creature->clock += timeAfter;
+		}
+		
+		// Cycle the action index back around
+		animationIndex = (animationIndex + 1) % MAX_ACTIONS;
 	}
 }
