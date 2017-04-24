@@ -59,7 +59,7 @@ static inline void *Newborn(GENETIC *data, int index) {
  * @param data: The GENETIC algorithm data.
  * @return Number of newborn per generation.
  **************************************************************/
-static inline void *NumberNewborn(const GENETIC *data) {
+static inline int NumberNewborn(const GENETIC *data) {
     return 2*(data->populationSize/4);
 }
 
@@ -129,7 +129,7 @@ void genetic_Generation(GENETIC *data) {
     // Then generate all the newborn organisms using the breeding
     // function specified. The newborn array is probably full of
     // garbage at this point, we just overwrite it.
-    int nBreed = NumberNewbown(data);
+    int nBreed = NumberNewborn(data);
     for (int n = 0; n < nBreed; n += 2) {
         // Indicies the parents are the top ones on the heap.
         int motherIndex, fatherIndex;
@@ -160,7 +160,7 @@ void genetic_Generation(GENETIC *data) {
         // Overwrite with a random index
         int randomIndex;
         heap_Pop(&data->heap, &randomIndex);
-        data->random(Entity(data, randonIndex));
+        data->random(Entity(data, randomIndex));
     }
 }
 
