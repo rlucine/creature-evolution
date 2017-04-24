@@ -1,22 +1,22 @@
 /**********************************************************//**
  * @file genetic.c
- * @brief Implementation of general genetic algorithm.
+ * @brief Implementation of a general genetic algorithm.
  * @version 1.0
  * @author Alec Shinomiya
  * @date April 2017
  **************************************************************/
 
 // Standard library
-#include <stddef.h>     // size_t
-#include <stdbool.h>    // bool
-#include <stdlib.h>     // malloc
-#include <string.h>     // memcpy
-#include <math.h>       // INFINITY
+#include <stddef.h>         // size_t
+#include <stdbool.h>        // bool
+#include <stdlib.h>         // malloc
+#include <string.h>         // memcpy
+#include <math.h>           // INFINITY
 
 // This project
-#include "debug.h"      // eprintf
-#include "heap.h"       // HEAP
-#include "genetic.h"    // GENETIC, GENETIC_REQUEST
+#include "debug.h"          // eprintf
+#include "heap.h"           // HEAP
+#include "genetic.h"        // GENETIC, GENETIC_REQUEST
 
 /**********************************************************//**
  * @brief Gets the entity associated with the given index.
@@ -26,7 +26,7 @@
  * @return Pointer to the entity. This could be out of bounds
  * on invalid arguments.
  **************************************************************/
-static inline void *genetic_Entity(GENETIC *data, int index) {
+static inline void *Entity(GENETIC *data, int index) {
     return ((char *)data->entities) + index;
 }
 
@@ -37,7 +37,7 @@ static inline void *genetic_Entity(GENETIC *data, int index) {
  * @return Index of the entity. This could be out of bounds
  * on invalid arguments.
  **************************************************************/
-static inline int genetic_Index(const GENETIC *data, const void *entity) {
+static inline int Index(const GENETIC *data, const void *entity) {
     ptrdiff_t split = (char *)entity - (char *)data->entities;
     return (int)split / (int)data->entitySize;
 }
@@ -50,8 +50,17 @@ static inline int genetic_Index(const GENETIC *data, const void *entity) {
  * from 0 to the number of newborns - 1.
  * @return Pointer to the entity.
  **************************************************************/
-static inline void *genetic_Newborn(GENETIC *data, int index) {
+static inline void *Newborn(GENETIC *data, int index) {
     return ((char *)data->newborn) + index;
+}
+
+/**********************************************************//**
+ * @brief Gets the number of newborn to generate.
+ * @param data: The GENETIC algorithm data.
+ * @return Number of newborn per generation.
+ **************************************************************/
+static inline void *NumberNewborn(const GENETIC *data) {
+    return 2*(data->populationSize/4);
 }
 
 /*============================================================*
@@ -65,22 +74,23 @@ bool genetic_Create(GENETIC *data, const GENETIC_REQUEST *request) {
     data->breed = request->breed;
     data->fitness = request->fitness;
     
-    // Allocates data for the genetic algorithm
+    // Allocates data for the entity array
     data->entities = malloc(data->entitySize*data->populationSize);
     if (!data->entities) {
         eprintf("Failed to allocate entities array.\n");
         return false;
     }
     
-    // Create the sorting heap
+    // Create the fitness sorting heap
     if (!heap_Create(&data->heap, data->populationSize)) {
         eprintf("Failed to create organism heap.\n");
         free(data->entities);
         return false;
     }
     
-    // Create the newborn list
-    data->newborn = malloc(data->entitySize*(data->populationSize/2 + 1));
+    // Create the newborn array
+    int newbornSize = NumberNewborn(data);
+    data->newborn = malloc(data->entitySize*newbornSize);
     if (!data->newborn) {
         eprintf("Failed to create newborn array.\n");
         free(data->entities);
@@ -88,9 +98,10 @@ bool genetic_Create(GENETIC *data, const GENETIC_REQUEST *request) {
         return false;
     }
     
-    // Initial seed
+    // Initial population generation
     for (int i = 0; i < data->populationSize; i++) {
-        data->random(genetic_Entity(data, i));
+        void *where = Entity(data, i);
+        data->random(where);
     }
     
     // Unrelated initialization
@@ -104,46 +115,52 @@ bool genetic_Create(GENETIC *data, const GENETIC_REQUEST *request) {
  *============================================================*/
 void genetic_Generation(GENETIC *data) {
     // Create a heap to sort the population by fitness.
+    // We re-use the same allocated heap for efficiency.
     for (int i = 0; i < data->populationSize; i++) {
-        heap_Push(&data->heap, i, data->fitness(genetic_Entity(data, i)));
+        heap_Push(&data->heap, i, data->fitness(Entity(data, i)));
     }
     
-    // Set the best individual
+    // Set the best individual's properties
     const HEAP_ELEMENT *best = heap_Top(&data->heap);
-    data->best = genetic_Entity(data, best->payload);
+    data->best = Entity(data, best->payload);
     data->bestFitness = best->priority;
     
-    // Decide what to do with organisms
-    // Use this formula for nBreed to ensure half the population
-    // gets paired up (multiple of 2).
-    int nBreed = 2*(data->populationSize/4);
-    
-    // Generate all the newborns
+    // Get the number of newborn to generate.
+    // Then generate all the newborn organisms using the breeding
+    // function specified. The newborn array is probably full of
+    // garbage at this point, we just overwrite it.
+    int nBreed = NumberNewbown(data);
     for (int n = 0; n < nBreed; n += 2) {
-        int motherIndex;
-        int fatherIndex;
+        // Indicies the parents are the top ones on the heap.
+        int motherIndex, fatherIndex;
         heap_Pop(&data->heap, &motherIndex);
         heap_Pop(&data->heap, &fatherIndex);
-        void *mother = genetic_Entity(data, motherIndex);
-        void *father = genetic_Entity(data, fatherIndex);
-        void *son = genetic_Newborn(data, n);
-        void *daughter = genetic_Newborn(data, n+1);
+        void *mother = Entity(data, motherIndex);
+        void *father = Entity(data, fatherIndex);
+        
+        // Get pointers to the newborn data slots
+        void *son = Newborn(data, n);
+        void *daughter = Newborn(data, n+1);
         data->breed(mother, father, son, daughter);
     }
     
-    // Kill the remaining ones and place newborns in their place
-    for (int n = 0; n < nBreed; n++) {
-        int index;
-        heap_Pop(&data->heap, &index);
-        memcpy(genetic_Entity(data, index), genetic_Newborn(data, n), data->entitySize);
+    // Kill the remaining individuals and place newborns in their place
+    for (int n = 0; n < nBreed && !heap_IsEmpty(&data->heap); n++) {
+        // Pop an individual from the heap who must die.
+        int killIndex;
+        heap_Pop(&data->heap, &killIndex);
+        
+        // Copy the newborn into the entity array.
+        memcpy(Entity(data, killIndex), Newborn(data, n), data->entitySize);
     }
     
     // If any stragglers left on the heap, just randomize them to keep
     // the same population size.
-    while (heap_Size(&data->heap) > 0) {
-        int index;
-        heap_Pop(&data->heap, &index);
-        data->random(genetic_Entity(data, index));
+    while (!heap_IsEmpty(&data->heap)) {
+        // Overwrite with a random index
+        int randomIndex;
+        heap_Pop(&data->heap, &randomIndex);
+        data->random(Entity(data, randonIndex));
     }
 }
 
@@ -152,23 +169,18 @@ void genetic_Generation(GENETIC *data) {
  *============================================================*/
 int genetic_Solve(GENETIC *data, float fitness, int timeout) {
     int generation = 0;
-    while (generation < timeout || timeout == TIMEOUT_NONE) {
+    while (timeout == TIMEOUT_NONE || generation < timeout) {
         genetic_Generation(data);
+        
+        // Termination check for fitness
         generation++;
         if (data->bestFitness <= fitness) {
             return generation;
         }
     }
+    
+    // Only get here if we timed out, otherwise could go forever.
     return timeout;
-}
-
-/*============================================================*
- * Destructor
- *============================================================*/
-void genetic_Destroy(GENETIC *data) {
-    heap_Destroy(&data->heap);
-    free(data->entities);
-    free(data->newborn);
 }
 
 /*============================================================*/

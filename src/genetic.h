@@ -1,6 +1,6 @@
 /**********************************************************//**
  * @file genetic.h
- * @brief Declaration of general genetic algorithm.
+ * @brief Declaration of a general genetic algorithm.
  * @version 1.0
  * @author Alec Shinomiya
  * @date April 2017
@@ -10,11 +10,11 @@
 #define _GENETIC_H_
 
 // Standard library
-#include <stddef.h>     // size_t
-#include <stdbool.h>    // bool
+#include <stddef.h>         // size_t
+#include <stdbool.h>        // bool
 
 // This project
-#include "heap.h"       // HEAP
+#include "heap.h"           // HEAP
 
 /// @brief Value used for specifying that a genetic algorithm
 /// can proceed for infinite generations.
@@ -133,7 +133,11 @@ extern int genetic_Solve(GENETIC *data, float fitness, int timeout);
  * @brief Destroy the algorithm data.
  * @param data: Algorithm data to get rid of.
  **************************************************************/
-extern void genetic_Destroy(GENETIC *data);
+static inline void genetic_Destroy(GENETIC *data) {
+    heap_Destroy(&data->heap);
+    free(data->entities);
+    free(data->newborn);
+}
 
 /*============================================================*/
 #endif // _GENETIC_H_
