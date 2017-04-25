@@ -31,14 +31,17 @@
 /**********************************************************//**
  * @brief Draws raster text on the screen.
  * @param line: The line of the screen to render at.
- * @param message: The string to render on the screen.
+ * @param ...: The string to render on the screen.
  **************************************************************/
-static inline void OutputText(int line, char *message) {
-    glWindowPos2i(10, 10 + 13*line);
-    while (*message) {
-        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *message);
-        message++;
-    }
+#define OutputText(line, ...) {\
+    char output[256];\
+    sprintf(output, __VA_ARGS__);\
+    glWindowPos2i(10, 10 + 13*line);\
+    char *message = output;\
+    while (*message) {\
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *message);\
+        message++;\
+    }\
 }
 
 /**********************************************************//**
@@ -49,9 +52,7 @@ static void render(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // Draw some information.
-    char output[50];
-    sprintf(output, "%0.1lf FPS", FrameRate());
-    OutputText(0, output);
+    OutputText(0, "%0.1lf FPS", FrameRate());
     
     // Done
     glColor3f(1, 1, 1);
