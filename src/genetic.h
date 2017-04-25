@@ -43,7 +43,7 @@ typedef void (*BREEDING_FUNCTION)(const void *mother, const void *father, void *
  * @param entity: The entity to evaluate.
  * @return The fitness (smaller numbers are more fit).
  **************************************************************/
-typedef float (*FITNESS_FUNCTION)(const void *entity);
+typedef float (*FITNESS_FUNCTION)(void *entity);
 
 /**********************************************************//**
  * @struct GENETIC_REQUEST

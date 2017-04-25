@@ -20,6 +20,8 @@
 // This project
 #include "debug.h"          // eprintf, assert
 #include "frame_rate.h"     // FrameRate
+#include "genetic.h"        // GENETIC
+#include "creature.h"       // CREATURE
 
 // Constants
 #define FRUSTUM_SIZE 0.2    ///< The scale of the projection frustum.
@@ -27,6 +29,9 @@
 #define CLIP_FAR 100.0      ///< Location of the far clipping plane.
 #define WINDOW_WIDTH 800    ///< The width of the screen.
 #define WINDOW_HEIGHT 600   ///< The height of the screen.
+
+/// Genetic algorithm optimization data
+static GENETIC Population;
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -79,6 +84,34 @@ static double timer(void) {
     return glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 }
 
+static void random(void *entity) {
+    CREATURE *creature = (CREATURE *)entity;
+    creature_CreateRandom(creature);
+}
+
+static void breed(const void *mother, const void *father, void *son, void *daughter) {
+    const CREATURE *cMother = (const CREATURE *)mother;
+    const CREATURE *cFather = (const CREATURE *)father;
+    CREATURE *cSon = (CREATURE *)son;
+    CREATURE *cDaughter = (CREATURE *)daughter;
+    creature_Breed(cMother, cFather, cSon);
+    creature_Breed(cMother, cFather, cDaughter);
+}
+
+static float fitness(void *entity) {
+    CREATURE *creature = (CREATURE *)entity;
+    return creature_Fitness(creature, FORWARD);
+}
+
+static const GENETIC_REQUEST REQUEST = {
+    .entitySize = sizeof(CREATURE),
+    .populationSize = 100,
+    .random = &random,
+    .breed = &breed,
+    .fitness = &fitness,
+};
+
+
 /**********************************************************//**
  * @brief Initialization function.
  * @return Whether the initialization succeeded.
@@ -129,6 +162,12 @@ static bool setup(int argc, char **argv) {
     glLoadIdentity();
     gluLookAt(0, -8, 0, 0, 0, 0, 0, 0, 1);
     glMatrixMode(0);
+    
+    // Set up the genetic data
+    if (!genetic_Create(&Population, &REQUEST)) {
+        eprintf("Failed to initialize genetic algorithm.\n");
+        return false;
+    }
     
     // Frame rate library setup
     RegisterTimer(&timer);
