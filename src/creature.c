@@ -14,29 +14,22 @@
 #include "random.h"			// randint
 #include "creature.h"		// CREATURE
 
-/// The system integrator
-static INTEGRAL integrate = &EulerMethod;
-
+/// Forced time step used in discretized updates.
 #define TIME_STEP 0.01
 
+/// @brief Probability that a random action stream will contain
+/// an actual action as opposed to a wait / stop action.
 #define ACTION_DENSITY 0.5
 
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.6
 #define GRAVITY -9.8
 
-#define MIN_STRENGTH 0.001
-#define MAX_STRENGTH 100.0
+/// Number of trials to evaluate fitness.
+#define FITNESS_TRIALS 10
 
-#define MIN_POSITION -1.0
-#define MAX_POSITION 1.0
-
-#define MIN_FRICTION 0.0
-#define MAX_FRICTION 1.0
-
-#define MIN_CONTRACTED_LENGTH 0.25
-#define MIN_EXTENDED_LENGTH 0.5
-#define MAX_MUSCLE_LENGTH 2.0
+/// The system integrator
+static INTEGRAL integrate = &EulerMethod;
 
 /*============================================================*
  * Random creature generation
@@ -47,20 +40,21 @@ void creature_CreateRandom(CREATURE *creature) {
     creature->nMuscles = randint(creature->nNodes, MAX_MUSCLES);
     creature->clock = 0.0;
     
+    // Generate initial fitness table.
+    for (int i = 0; i < N_BEHAVIORS; i++) {
+        creature->fitness[i] = FITNESS_INVALID;
+    }
+    
     // Generate the random nodes. Assume all nodes reside
     // inside the unit sphere for simplicity.
     for (int i = 0; i < creature->nNodes; i++) {
         NODE *node = &creature->nodes[i];
         
         // Initialize this node's position
-        node->position.x = uniform(MIN_POSITION, MAX_POSITION);
-        node->position.y = uniform(0.0, MAX_POSITION);
-        node->position.z = uniform(MIN_POSITION, MAX_POSITION);
-    
-        // Set velocity and acceleration to zero
-        vector_Set(&node->velocity, 0.0, 0.0, 0.0);
-        vector_Set(&node->acceleration, 0.0, 0.0, 0.0);
-        
+        node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
+        node->initial.y = uniform(0.0, MAX_POSITION);
+        node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
+
         // Random frictionness
         node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
     }
@@ -112,7 +106,7 @@ void creature_CreateRandom(CREATURE *creature) {
 }
 
 /**********************************************************//**
- * @struct FREE_VARIABLE
+ * @struct MUTATION
  * @brief Lists all the possible mutations that can occur.
  **************************************************************/
 typedef enum {
@@ -146,9 +140,9 @@ void creature_Mutate(CREATURE *creature) {
 	switch (mutation) {
 	case NODE_POSITION:
 		// Change a random node position
-		node->position.x = uniform(MIN_POSITION, MAX_POSITION);
-		node->position.y = uniform(0.0, MAX_POSITION);
-		node->position.z = uniform(MIN_POSITION, MAX_POSITION);
+		node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
+		node->initial.y = uniform(0.0, MAX_POSITION);
+		node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
 		break;
 		
 	case NODE_FRICTION:
@@ -371,14 +365,17 @@ void creature_Update(CREATURE *creature, float dt) {
 	}
 }
 
-/*============================================================*
- * Creature discretized update
- *============================================================*/
-void creature_UpdateFragmented(CREATURE *creature, float dt) {
-	int fullSteps = (int)(dt / TIME_STEP);
-	float partialStep = fmod(dt, TIME_STEP);
+/**********************************************************//**
+ * @brief Updates the creature's mass-spring system. This
+ * upsate is discretized to use the given TIME_STEP variable.
+ * @param creature: The creature to update.
+ * @param dt: The time step in seconds.
+ **************************************************************/
+static void creature_UpdateDiscrete(CREATURE *creature, float dt, float step) {
+	int fullSteps = (int)(dt / step);
+	float partialStep = fmod(dt, step);
 	for (int i = 0; i < fullSteps; i++) {
-		creature_Update(creature, TIME_STEP);
+		creature_Update(creature, step);
 	}
 	creature_Update(creature, partialStep);
 }
@@ -398,8 +395,8 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
 	
 	// Animate the current behavior for the remaining "before"
 	// time step, before we flip the action.
-	creature_UpdateFragmented(creature, timeBefore);
-	creature->clock += timeBefore;
+    creature_UpdateDiscrete(creature, timeBefore, TIME_STEP);
+    creature->clock += timeBefore;
 	
 	// Step all subsequent actions
 	float endTime = creature->clock + dt;
@@ -414,11 +411,11 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
 		// Determine if this is a full step or not
 		if (fullActions > 0) {
 			// Doing a full step
-			creature_UpdateFragmented(creature, ACTION_TIME);
+			creature_UpdateDiscrete(creature, ACTION_TIME, TIME_STEP);
 			creature->clock += ACTION_TIME;
 			fullActions--;
 		} else {
-			creature_UpdateFragmented(creature, timeAfter);
+			creature_UpdateDiscrete(creature, timeAfter, TIME_STEP);
 			creature->clock += timeAfter;
 		}
 		
@@ -426,3 +423,144 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
 		animationIndex = (animationIndex + 1) % MAX_ACTIONS;
 	}
 }
+
+/**********************************************************//**
+ * @brief Computes the average NODE position.
+ * @param creature: The creature to inspect.
+ * @return The average position of the creature's NODEs.
+ **************************************************************/
+static inline VECTOR AveragePosition(const CREATURE *creature) {
+    VECTOR total = {0.0, 0.0, 0.0};
+    for (int i = 0; i < creature->nNodes; i++) {
+        vector_Add(&total, &creature->nodes[i].position);
+    }
+    vector_Multiply(&total, 1.0 / creature->nNodes);
+    return total;
+}
+
+/**********************************************************//**
+ * @brief Computes the average NODE velocity.
+ * @param creature: The creature to inspect.
+ * @return The average velocity of the creature's NODEs.
+ **************************************************************/
+static inline VECTOR AverageVelocity(const CREATURE *creature) {
+    VECTOR total = {0.0, 0.0, 0.0};
+    for (int i = 0; i < creature->nNodes; i++) {
+        vector_Add(&total, &creature->nodes[i].velocity);
+    }
+    vector_Multiply(&total, 1.0 / creature->nNodes);
+    return total;
+}
+
+/*============================================================*
+ * Creature initialization
+ *============================================================*/
+void creature_Reset(CREATURE *creature) {
+    // Reset biological clock
+    creature->clock = 0.0;
+    
+    // Deactivate all muscles
+    for (int i = 0; i < creature->nMuscles; i++) {
+        MUSCLE *muscle = &creature->muscles[i];
+        muscle->isContracted = false;
+    }
+    
+    // Reset initial position
+    for (int i = 0; i < creature->nNodes; i++) {
+        NODE *node = &creature->nodes[i];
+        node->position = node->initial;
+        vector_Set(&node->velocity, 0.0, 0.0, 0.0);
+        vector_Set(&node->acceleration, 0.0, 0.0, 0.0);
+    }
+    
+    // Approach rest by stepping through time until the
+    // creature has no velocity.
+    VECTOR average;
+    do {
+        creature_Update(creature, TIME_STEP);
+        average = AverageVelocity(creature);
+    } while (!vector_IsZero(&average));
+    
+    // Store these new coordinates as the real initial
+    // node positions.
+    for (int i = 0; i < creature->nNodes; i++) {
+        NODE *node = &creature->nodes[i];
+        node->initial = node->position;
+    }
+}
+
+/**********************************************************//**
+ * @brief Models the creature walking forward using its
+ * FORWARD MOTION. This is repeated FITNESS_TRIALS times for
+ * an averaging effect. The fitness is based on the total
+ * distance travelled in the X-direction (positive), and is
+ * negatively impacted by significant motion in the Y and Z
+ * directions.
+ * @param creature: The creature to inspect.
+ * @return The fitness of the walk animation.
+ **************************************************************/
+static float WalkFitness(CREATURE *creature) {
+    // Evaluate the creature's walking fitness. To do this we
+    // will loop the walking animation ten times
+    VECTOR start = AveragePosition(creature);
+    VECTOR end;
+    
+    // Count all positive x motions. However, penalize if there
+    // is tons of variance in the Y and Z directions: we only
+    // want to go forwards (and repeatably so).
+    float xMotionTotal = 0.0;
+    float yMotionMagnitudeTotal = 0.0;
+    float zMotionMagnitudeTotal = 0.0;
+    
+    // Do the given number of trials subsequently without
+    // resetting the creature.
+    for (int trial = 0; trial < FITNESS_TRIALS; trial++) {
+        // Perform a whole cycle of the animation
+        creature_Animate(creature, FORWARD, BEHAVIOR_TIME);
+        
+        // Sample the difference again
+        end = AveragePosition(creature);
+        VECTOR delta = end;
+        vector_Subtract(&delta, &start);
+        xMotionTotal += delta.x;
+        yMotionMagnitudeTotal += fabs(delta.y);
+        zMotionMagnitudeTotal += fabs(delta.z);
+    }
+    
+    // Get the final fitness
+    float totalFitness = xMotionTotal - yMotionMagnitudeTotal - zMotionMagnitudeTotal;
+    return totalFitness / FITNESS_TRIALS;
+}
+
+/*============================================================*
+ * Overall fitness function
+ *============================================================*/
+float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
+    // Reset the creature for evaluation purposes, so the
+    // creature always begins at rest and there are no weird
+    // initial spasms.
+    creature_Reset(creature);
+    
+    // Check memoized fitness table
+    float fitness = creature->fitness[behavior];
+    if (fitness != FITNESS_INVALID) {
+        return fitness;
+    }
+    
+    // We actually need to evaluate the fitness
+    switch (behavior) {
+    case FORWARD:
+        fitness = WalkFitness(creature);
+        break;
+    
+    default:
+        fitness = FITNESS_INVALID;
+        break;
+    }
+    
+    // Store the fitness in the memo table
+    creature->fitness[behavior] = fitness;
+    return fitness;
+}
+
+/*============================================================*/

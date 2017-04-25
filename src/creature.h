@@ -22,11 +22,22 @@
  * This holds the position and physical properties.
  **************************************************************/
 typedef struct {
+    VECTOR initial;         ///< The initial position.
     VECTOR position;        ///< The location of the node.
     VECTOR velocity;        ///< The current node velocity.
     VECTOR acceleration;    ///< Current node acceleration.
     float friction;         ///< Coefficient of friction.
 } NODE;
+
+// Node amounts
+#define MIN_NODES 4         ///< Minimum number of NODEs needed per creature.
+#define MAX_NODES 16        ///< Maximum number of NODEs per creature.
+
+// Node properties
+#define MIN_POSITION -1.0   ///< Minimum initial XZ position of a NODE.
+#define MAX_POSITION 1.0    ///< Maximum initial XZ position of a NODE.
+#define MIN_FRICTION 0.0    ///< Minimum friction of a NODE.
+#define MAX_FRICTION 1.0    ///< Maximum friction of a NODE.
 
 /**********************************************************//**
  * @struct MUSCLE
@@ -38,25 +49,28 @@ typedef struct {
     float extended;         ///< Extended muscle length.
     float contracted;       ///< Contracted muscle length.
     float strength;         ///< Stiffness of the muscle.
-    bool isContracted;        ///< Whether the muscle is contracting.
+    bool isContracted;      ///< Whether the muscle is contracting.
 } MUSCLE;
 
-/// @brief Minimum number of NODEs needed per creature. This
-/// enables the creature to be nonplanar.
-#define MIN_NODES 4
-
-/// @brief Maximum number of NODEs per creature.
-#define MAX_NODES 16
-
-/// @brief Maximum number of MUSCLEs per creature.
+/// Maximum number of MUSCLEs per creature.
 #define MAX_MUSCLES (MAX_NODES*2)
 
 /// @brief The maximum number of actions occurring in
 /// one period of a cyclic MOTION.
 #define MAX_ACTIONS (MAX_MUSCLES*MAX_MUSCLES)
 
-/// @brief Signals that no muscle should contract.
-#define MUSCLE_NONE -1
+// Configurations
+#define MIN_STRENGTH 0.001  ///< The minumum strength of a MUSCLE.
+#define MAX_STRENGTH 100.0  ///< Maximum strength of a MUSCLE.
+
+/// The minimum length of a contracted MUSCLE.
+#define MIN_CONTRACTED_LENGTH 0.25
+
+/// The minumum length of an extended MUSCLE.
+#define MIN_EXTENDED_LENGTH 0.5
+
+/// The maximum length of a MUSCLE in any state.
+#define MAX_MUSCLE_LENGTH 2.0
 
 /**********************************************************//**
  * @struct MOTION
@@ -69,6 +83,9 @@ typedef struct {
     /// List of muscle indices to contract or expand.
     int action[MAX_ACTIONS];
 } MOTION;
+
+/// Signals that no muscle should contract.
+#define MUSCLE_NONE -1
 
 /**********************************************************//**
  * @enum BEHAVIOR
@@ -110,13 +127,69 @@ typedef struct {
     
     /// BEHAVIOR data for each distinct hehavior.
     MOTION behavior[N_BEHAVIORS];
+    
+    /// Buffered fitness data for each behavior.
+    float fitness[N_BEHAVIORS];
 } CREATURE;
+
+/// Invalid fitness amount.
+#define FITNESS_INVALID -1.0
 
 /**********************************************************//**
  * @brief Generates an entirely random creature.
  * @param creature: Data is stored at this location.
  **************************************************************/
 extern void creature_CreateRandom(CREATURE *creature);
+
+/**********************************************************//**
+ * @brief Resets the creature state and finds a stable
+ * initial position based on the initial node positions.
+ * @param creature: The initialized creature data.
+ **************************************************************/
+extern void creature_Reset(CREATURE *creature);
+
+/**********************************************************//**
+ * @brief Applies a random mutation to some aspect of the
+ * creature. This can mutate the initial node position,
+ * node friction, muscle properties and attachment, and
+ * actions found within a behavior.
+ * @param creature: The data to mutate.
+ **************************************************************/
+extern void creature_Mutate(CREATURE *creature);
+
+/**********************************************************//**
+ * @brief Recombines the parent properties to create a child
+ * CREATURE.
+ * @param mother: The data of one parent.
+ * @param father: The data of the other parent.
+ * @param child: Location to stor the child data at.
+ **************************************************************/
+extern void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *child);
+
+/**********************************************************//**
+ * @brief Updates the creature's mass-spring system independent
+ * of any discretized time step or animation configuration.
+ * @param creature: The creature to update.
+ * @param dt: The time step in seconds.
+ **************************************************************/
+extern void creature_Update(CREATURE *creature, float dt);
+
+/**********************************************************//**
+ * @brief Plays back the animation for the given behavior.
+ * @param creature: The creature to animate.
+ * @param behavior: The BEHAVIOR to animate.
+ * @param dt: The time step in seconds.
+ **************************************************************/
+extern void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt);
+
+/**********************************************************//**
+ * @brief Gets the fitness of the given behavior. This uses
+ * a memo table in each creature to avoid recomputation.
+ * @param creature: The creature to inspect.
+ * @param behavior: The BEHAVIOR to animate.
+ * @return The fitness of that behavior.
+ **************************************************************/
+extern float creature_Fitness(CREATURE *creature, BEHAVIOR behavior);
 
 /*============================================================*/
 #endif // _CREATURE_H_
