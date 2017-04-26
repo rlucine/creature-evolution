@@ -27,7 +27,7 @@
  * on invalid arguments.
  **************************************************************/
 static inline void *Entity(GENETIC *data, int index) {
-    return ((char *)data->entities) + index;
+    return ((char *)data->entities) + index*data->entitySize;
 }
 
 /**********************************************************//**
@@ -51,7 +51,7 @@ static inline int Index(const GENETIC *data, const void *entity) {
  * @return Pointer to the entity.
  **************************************************************/
 static inline void *Newborn(GENETIC *data, int index) {
-    return ((char *)data->newborn) + index;
+    return ((char *)data->newborn) + index*data->entitySize;
 }
 
 /**********************************************************//**
