@@ -117,13 +117,13 @@ typedef enum {
 typedef struct {
     int nNodes;             ///< Number of distinct nodes.
     int nMuscles;           ///< Number of distinct muscles.
-    float clock;			///< The creature's biological clock.
+    float clock;            ///< The creature's biological clock.
     
     /// NODE data for one creature.
     NODE nodes[MAX_NODES];
     
     /// MUSCLE data for one creature.
-    MUSCLE muscles[MAX_NODES];
+    MUSCLE muscles[MAX_MUSCLES];
     
     /// BEHAVIOR data for each distinct hehavior.
     MOTION behavior[N_BEHAVIORS];

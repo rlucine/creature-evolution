@@ -8,21 +8,21 @@
  **************************************************************/
 
 // This project
-#include "debug.h"			// assert, eprintf
-#include "vector.h"			// VECTOR
-#include "integral.h"		// INTEGRAL
-#include "random.h"			// randint
-#include "creature.h"		// CREATURE
+#include "debug.h"          // assert, eprintf
+#include "vector.h"         // VECTOR
+#include "integral.h"       // INTEGRAL
+#include "random.h"         // randint
+#include "creature.h"       // CREATURE
 
 /// Forced time step used in discretized updates.
-#define TIME_STEP 0.01
+#define TIME_STEP 0.001
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.
 #define ACTION_DENSITY 0.5
 
 /// Bounciness as a node hits the ground.
-#define RESTITUTION 0.6
+#define RESTITUTION 0.1
 #define GRAVITY -9.8
 
 /// Number of trials to evaluate fitness.
@@ -69,12 +69,12 @@ void creature_CreateRandom(CREATURE *creature) {
         if (i < creature->nNodes) {
             muscle->first = i;
         } else {
-            muscle->second = randint(0, creature->nNodes-1);
+            muscle->first = randint(0, creature->nNodes-1);
         }
         
         // Random destination node, but no self-muscles
         // as those would do nothing.
-        muscle->second = randint(0, creature->nNodes);
+        muscle->second = randint(0, creature->nNodes-1);
         if (muscle->first == muscle->second) {
 			// Jump to next if a self-muscle appears
 			muscle->second = (muscle->second + 1) % creature->nNodes;
@@ -152,7 +152,7 @@ void creature_Mutate(CREATURE *creature) {
 	
 	case MUSCLE_ANCHOR:
 		// Changes a random muscle anchor point
-		muscle->second = randint(0, creature->nMuscles-1);
+		muscle->second = randint(0, creature->nNodes-1);
 		if (muscle->first == muscle->second) {
 			muscle->second = (muscle->second + 1) % creature->nNodes;
 		}
@@ -194,7 +194,7 @@ void creature_Mutate(CREATURE *creature) {
 void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *child) {
 	// Cross the genetic information of the mother and father to
 	// create child information.
-	
+    
 	// Inherit body structure from either parent
 	if (randint(0, 1)) {
 		child->nNodes = mother->nNodes;
@@ -204,12 +204,17 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
 		child->nMuscles = father->nMuscles;
 	}
 	child->clock = 0.0;
+    
+    // Generate initial fitness table.
+    for (int i = 0; i < N_BEHAVIORS; i++) {
+        child->fitness[i] = FITNESS_INVALID;
+    }
 	
 	// Inherit actual node properties
 	for (int i = 0; i < child->nNodes; i++) {
 		// Inherit this node from either parent
 		const CREATURE *selected;
-		if (randint(0, 1) == 0 && i < mother->nNodes) {
+		if ((randint(0, 1) == 0 && i < mother->nNodes) || i >= father->nNodes) {
 			selected = mother;
 		} else {
 			selected = father;
@@ -224,28 +229,31 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
 	for (int i = 0; i < child->nMuscles; i++) {
 		// Inherit the muscle from either parent
 		const CREATURE *selected;
-		if (randint(0, 1) == 0 && i < mother->nMuscles) {
+		if ((randint(0, 1) == 0 && i < mother->nMuscles) || i >= father->nMuscles) {
 			selected = mother;
 		} else {
 			selected = father;
 		}
-		assert(i < selected->nNodes);
+		assert(i < selected->nMuscles);
 		
 		// Copy over the muscle data, ensuring that the
 		// node indices are actually valid nodes.
 		child->muscles[i] = selected->muscles[i];
+        child->muscles[i].isContracted = false;
 		
 		// This is essentially a mutation: if there
 		// are fewer nodes, rebind the muscle to a
 		// valid node.
-		int first = randint(0, child->nNodes-1);
-		int second = randint(0, child->nNodes-1);
-		if (first == second) {
-			// Jump to next if a self-muscle appears
-			second = (second + 1) % child->nNodes;
-		}
-		child->muscles[i].first = first;
-		child->muscles[i].second = second;
+        if (child->muscles[i].first >= child->nNodes || child->muscles[i].second >= child->nNodes) {
+            int first = randint(0, child->nNodes-1);
+            int second = randint(0, child->nNodes-1);
+            if (first == second) {
+                // Jump to next if a self-muscle appears
+                second = (second + 1) % child->nNodes;
+            }
+            child->muscles[i].first = first;
+            child->muscles[i].second = second;
+        }
 	}
 	
 	// Inherit behaviors: pick a cross-over point within
@@ -276,6 +284,7 @@ void creature_Update(CREATURE *creature, float dt) {
 	// of its nodes and muscles. This update does not attempt
 	// to animate a behavior or make changes to the creature's
 	// muscle activation state.
+    
 	
 	// Zero out all the node accelerations and apply
 	// just the gravitational force.
@@ -311,15 +320,11 @@ void creature_Update(CREATURE *creature, float dt) {
 		// of target length, so divide that out too.
 		float targetLength = muscle->isContracted? muscle->contracted: muscle->extended;
 		float forceMagnitude = (muscle->strength/targetLength)*(targetLength - length);
-		
+
 		// Normalize delta and scale by force magnitude all
 		// in one multiplication step.
 		VECTOR force = delta;
-		vector_Multiply(&force, forceMagnitude / length);
-		
-		//
-		// TODO: velocity damping force here?
-		//
+		vector_Multiply(&force, -forceMagnitude/length);
 		
 		// Apply the force to each of the endpoints, assuming
 		// all the masses are uniform.
@@ -354,13 +359,13 @@ void creature_Update(CREATURE *creature, float dt) {
 	// Integrate the positions
 	for (int i = 0; i < creature->nNodes; i++) {
 		NODE *node = &creature->nodes[i];
-		integrate(&node->velocity, &node->acceleration, dt);
+        integrate(&node->velocity, &node->acceleration, dt);
 		integrate(&node->position, &node->velocity, dt);
 		
 		// Collision check
 		if (iszero(node->position.y) || node->position.y < 0.0) {
 			node->position.y = 0.0;
-			node->velocity.y *= -RESTITUTION;
+            node->velocity.y *= -RESTITUTION;
 		}
 	}
 }
@@ -475,11 +480,16 @@ void creature_Reset(CREATURE *creature) {
     
     // Approach rest by stepping through time until the
     // creature has no velocity.
-    VECTOR average;
+    VECTOR start = AverageVelocity(creature);
+    VECTOR next;
+    VECTOR delta;
     do {
         creature_Update(creature, TIME_STEP);
-        average = AverageVelocity(creature);
-    } while (!vector_IsZero(&average));
+        next = AverageVelocity(creature);
+        delta = next;
+        vector_Subtract(&delta, &start);
+        start = next;
+    } while (!vector_IsZero(&delta));
     
     // Store these new coordinates as the real initial
     // node positions.
