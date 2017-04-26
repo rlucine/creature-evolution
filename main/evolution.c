@@ -100,7 +100,7 @@ static void breed(const void *mother, const void *father, void *son, void *daugh
 
 static float fitness(void *entity) {
     CREATURE *creature = (CREATURE *)entity;
-    return creature_Fitness(creature, FORWARD);
+    return -creature_Fitness(creature, FORWARD);
 }
 
 static const GENETIC_REQUEST REQUEST = {
@@ -110,7 +110,6 @@ static const GENETIC_REQUEST REQUEST = {
     .breed = &breed,
     .fitness = &fitness,
 };
-
 
 /**********************************************************//**
  * @brief Initialization function.
@@ -187,8 +186,16 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     
+    // Genetic algorithm optimization
+    int generation = 1;
+    while (generation < 100) {
+        genetic_Generation(&Population);
+        printf("Generation %d: Fitness %f\n", generation, genetic_BestFitness(&Population));
+        generation++;
+    }
+    
     // Main loop and termination
-    glutMainLoop();
+    // glutMainLoop();
     return EXIT_SUCCESS;
 }
 
