@@ -76,9 +76,9 @@ void creature_CreateRandom(CREATURE *creature) {
         // as those would do nothing.
         muscle->second = randint(0, creature->nNodes-1);
         if (muscle->first == muscle->second) {
-			// Jump to next if a self-muscle appears
-			muscle->second = (muscle->second + 1) % creature->nNodes;
-		}
+            // Jump to next if a self-muscle appears
+            muscle->second = (muscle->second + 1) % creature->nNodes;
+        }
         
         // Get random contract or expand lengths
         muscle->extended = uniform(MIN_EXTENDED_LENGTH, MAX_MUSCLE_LENGTH);
@@ -110,140 +110,140 @@ void creature_CreateRandom(CREATURE *creature) {
  * @brief Lists all the possible mutations that can occur.
  **************************************************************/
 typedef enum {
-	NODE_POSITION,
-	NODE_FRICTION,
-	MUSCLE_ANCHOR,
-	MUSCLE_EXTENDED,
-	MUSCLE_CONTRACTED,
-	MUSCLE_STRENGTH,
-	BEHAVIOR_ADD,
-	BEHAVIOR_REMOVE,
+    NODE_POSITION,
+    NODE_FRICTION,
+    MUSCLE_ANCHOR,
+    MUSCLE_EXTENDED,
+    MUSCLE_CONTRACTED,
+    MUSCLE_STRENGTH,
+    BEHAVIOR_ADD,
+    BEHAVIOR_REMOVE,
 } MUTATION;
 
 /// The number of unique possible mutations.
 #define N_MUTATIONS 11
-	
+    
 /*============================================================*
  * Randomly mutate the creature
  *============================================================*/
 void creature_Mutate(CREATURE *creature) {
-	// Pick any mutation to occur
-	MUTATION mutation = randint(0, N_MUTATIONS-1);
-	
-	// Pre-generate all the random numbers
-	NODE *node = &creature->nodes[randint(0, creature->nNodes-1)];
-	MUSCLE *muscle = &creature->muscles[randint(0, creature->nMuscles-1)];
-	MOTION *behavior = &creature->behavior[randint(0, N_BEHAVIORS-1)];
-	int action = randint(0, MAX_ACTIONS-1);
-	
-	// Apply the mutations
-	switch (mutation) {
-	case NODE_POSITION:
-		// Change a random node position
-		node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
-		node->initial.y = uniform(0.0, MAX_POSITION);
-		node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
-		break;
-		
-	case NODE_FRICTION:
-		// Change a random node friction
-		node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
-		break;
-	
-	case MUSCLE_ANCHOR:
-		// Changes a random muscle anchor point
-		muscle->second = randint(0, creature->nNodes-1);
-		if (muscle->first == muscle->second) {
-			muscle->second = (muscle->second + 1) % creature->nNodes;
-		}
-		break;
-	
-	case MUSCLE_EXTENDED:
-		// Change a muscle extended length
-		muscle->extended = uniform(muscle->contracted, MAX_MUSCLE_LENGTH);
-		break;
-	
-	case MUSCLE_CONTRACTED:
-		// Change muscle contracted length
-		muscle->contracted = uniform(MIN_CONTRACTED_LENGTH, muscle->extended);
-		break;
-		
-	case MUSCLE_STRENGTH:
-		// Change muscle strength
-		muscle->strength = uniform(MIN_STRENGTH, MAX_STRENGTH);
-		break;
-	
-	case BEHAVIOR_ADD:
-		// Add  anew action to the stream
-		behavior->action[action] = randint(0, creature->nMuscles-1);
-		break;
-	
-	case BEHAVIOR_REMOVE:
-		// Delete an action from the stream
-		behavior->action[action] = MUSCLE_NONE;
-		break;
-	
-	default:
-		break;
-	}
+    // Pick any mutation to occur
+    MUTATION mutation = randint(0, N_MUTATIONS-1);
+    
+    // Pre-generate all the random numbers
+    NODE *node = &creature->nodes[randint(0, creature->nNodes-1)];
+    MUSCLE *muscle = &creature->muscles[randint(0, creature->nMuscles-1)];
+    MOTION *behavior = &creature->behavior[randint(0, N_BEHAVIORS-1)];
+    int action = randint(0, MAX_ACTIONS-1);
+    
+    // Apply the mutations
+    switch (mutation) {
+    case NODE_POSITION:
+        // Change a random node position
+        node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
+        node->initial.y = uniform(0.0, MAX_POSITION);
+        node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
+        break;
+        
+    case NODE_FRICTION:
+        // Change a random node friction
+        node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
+        break;
+    
+    case MUSCLE_ANCHOR:
+        // Changes a random muscle anchor point
+        muscle->second = randint(0, creature->nNodes-1);
+        if (muscle->first == muscle->second) {
+            muscle->second = (muscle->second + 1) % creature->nNodes;
+        }
+        break;
+    
+    case MUSCLE_EXTENDED:
+        // Change a muscle extended length
+        muscle->extended = uniform(muscle->contracted, MAX_MUSCLE_LENGTH);
+        break;
+    
+    case MUSCLE_CONTRACTED:
+        // Change muscle contracted length
+        muscle->contracted = uniform(MIN_CONTRACTED_LENGTH, muscle->extended);
+        break;
+        
+    case MUSCLE_STRENGTH:
+        // Change muscle strength
+        muscle->strength = uniform(MIN_STRENGTH, MAX_STRENGTH);
+        break;
+    
+    case BEHAVIOR_ADD:
+        // Add  anew action to the stream
+        behavior->action[action] = randint(0, creature->nMuscles-1);
+        break;
+    
+    case BEHAVIOR_REMOVE:
+        // Delete an action from the stream
+        behavior->action[action] = MUSCLE_NONE;
+        break;
+    
+    default:
+        break;
+    }
 }
 
 /*============================================================*
  * Creature breeding interchange
  *============================================================*/
 void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *child) {
-	// Cross the genetic information of the mother and father to
-	// create child information.
+    // Cross the genetic information of the mother and father to
+    // create child information.
     
-	// Inherit body structure from either parent
-	if (randint(0, 1)) {
-		child->nNodes = mother->nNodes;
-		child->nMuscles = mother->nMuscles;
-	} else {
-		child->nNodes = father->nNodes;
-		child->nMuscles = father->nMuscles;
-	}
-	child->clock = 0.0;
+    // Inherit body structure from either parent
+    if (randint(0, 1)) {
+        child->nNodes = mother->nNodes;
+        child->nMuscles = mother->nMuscles;
+    } else {
+        child->nNodes = father->nNodes;
+        child->nMuscles = father->nMuscles;
+    }
+    child->clock = 0.0;
     
     // Generate initial fitness table.
     for (int i = 0; i < N_BEHAVIORS; i++) {
         child->fitness[i] = FITNESS_INVALID;
     }
-	
-	// Inherit actual node properties
-	for (int i = 0; i < child->nNodes; i++) {
-		// Inherit this node from either parent
-		const CREATURE *selected;
-		if ((randint(0, 1) == 0 && i < mother->nNodes) || i >= father->nNodes) {
-			selected = mother;
-		} else {
-			selected = father;
-		}
-		assert(i < selected->nNodes);
-		
-		// Copy over the node data
-		child->nodes[i] = selected->nodes[i];
-	}
-	
-	// Inherit muscles
-	for (int i = 0; i < child->nMuscles; i++) {
-		// Inherit the muscle from either parent
-		const CREATURE *selected;
-		if ((randint(0, 1) == 0 && i < mother->nMuscles) || i >= father->nMuscles) {
-			selected = mother;
-		} else {
-			selected = father;
-		}
-		assert(i < selected->nMuscles);
-		
-		// Copy over the muscle data, ensuring that the
-		// node indices are actually valid nodes.
-		child->muscles[i] = selected->muscles[i];
+    
+    // Inherit actual node properties
+    for (int i = 0; i < child->nNodes; i++) {
+        // Inherit this node from either parent
+        const CREATURE *selected;
+        if ((randint(0, 1) == 0 && i < mother->nNodes) || i >= father->nNodes) {
+            selected = mother;
+        } else {
+            selected = father;
+        }
+        assert(i < selected->nNodes);
+        
+        // Copy over the node data
+        child->nodes[i] = selected->nodes[i];
+    }
+    
+    // Inherit muscles
+    for (int i = 0; i < child->nMuscles; i++) {
+        // Inherit the muscle from either parent
+        const CREATURE *selected;
+        if ((randint(0, 1) == 0 && i < mother->nMuscles) || i >= father->nMuscles) {
+            selected = mother;
+        } else {
+            selected = father;
+        }
+        assert(i < selected->nMuscles);
+        
+        // Copy over the muscle data, ensuring that the
+        // node indices are actually valid nodes.
+        child->muscles[i] = selected->muscles[i];
         child->muscles[i].isContracted = false;
-		
-		// This is essentially a mutation: if there
-		// are fewer nodes, rebind the muscle to a
-		// valid node.
+        
+        // This is essentially a mutation: if there
+        // are fewer nodes, rebind the muscle to a
+        // valid node.
         if (child->muscles[i].first >= child->nNodes || child->muscles[i].second >= child->nNodes) {
             int first = randint(0, child->nNodes-1);
             int second = randint(0, child->nNodes-1);
@@ -254,120 +254,120 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
             child->muscles[i].first = first;
             child->muscles[i].second = second;
         }
-	}
-	
-	// Inherit behaviors: pick a cross-over point within
-	// the action stream and copy.
-	for (int i = 0; i < N_BEHAVIORS; i++) {
-		// Unroll the if-condition for efficiency
-		int crossover = randint(0, MAX_ACTIONS-1);
-		for (int j = 0; j < crossover; j++) {
-			child->behavior[i].action[j] = mother->behavior[i].action[j];
-		}
-		for (int j = crossover; j < MAX_ACTIONS; j++) {
-			child->behavior[i].action[j] = father->behavior[i].action[j];
-		}
-	}
-	
-	// Mutate the child at random
-	int nMutations = randint(0, MAX_NODES);
-	for (int i = 0; i < nMutations; i++) {
-		creature_Mutate(child);
-	}
+    }
+    
+    // Inherit behaviors: pick a cross-over point within
+    // the action stream and copy.
+    for (int i = 0; i < N_BEHAVIORS; i++) {
+        // Unroll the if-condition for efficiency
+        int crossover = randint(0, MAX_ACTIONS-1);
+        for (int j = 0; j < crossover; j++) {
+            child->behavior[i].action[j] = mother->behavior[i].action[j];
+        }
+        for (int j = crossover; j < MAX_ACTIONS; j++) {
+            child->behavior[i].action[j] = father->behavior[i].action[j];
+        }
+    }
+    
+    // Mutate the child at random
+    int nMutations = randint(0, MAX_NODES);
+    for (int i = 0; i < nMutations; i++) {
+        creature_Mutate(child);
+    }
 }
 
 /*============================================================*
  * Creature evaluation
  *============================================================*/
 void creature_Update(CREATURE *creature, float dt) {
-	// Updates the creature based on the current state of all
-	// of its nodes and muscles. This update does not attempt
-	// to animate a behavior or make changes to the creature's
-	// muscle activation state.
+    // Updates the creature based on the current state of all
+    // of its nodes and muscles. This update does not attempt
+    // to animate a behavior or make changes to the creature's
+    // muscle activation state.
     
-	
-	// Zero out all the node accelerations and apply
-	// just the gravitational force.
-	VECTOR gravity = {0.0, GRAVITY, 0.0};
-	for (int i = 0; i < creature->nNodes; i++) {
-		creature->nodes[i].acceleration = gravity;
-	}
-	
-	// Compute all the muscle forces and apply them
-	// as node accelerations. We have already assumed
-	// that all nodes have uniform mass for simplicity.
-	for (int i = 0; i < creature->nMuscles; i++) {
-		// Get pointers to all relevant data
-		MUSCLE *muscle = &creature->muscles[i];
-		NODE *first = &creature->nodes[muscle->first];
-		NODE *second = &creature->nodes[muscle->second];
-		if (iszero(muscle->strength)) {
-			// Early exit on this loop
-			continue;
-		}
-		
-		// Get the actual muscle length
-		VECTOR delta = second->position;
-		vector_Subtract(&delta, &first->position);
-		float length = vector_Length(&delta);
-		if (iszero(length)) {
-			// Muscle has no length somehow, this should
-			// be impossible but let's ignore it.
-			continue;
-		}
-		
-		// Get the muscle force. The strength is per unit
-		// of target length, so divide that out too.
-		float targetLength = muscle->isContracted? muscle->contracted: muscle->extended;
-		float forceMagnitude = (muscle->strength/targetLength)*(targetLength - length);
+    
+    // Zero out all the node accelerations and apply
+    // just the gravitational force.
+    VECTOR gravity = {0.0, GRAVITY, 0.0};
+    for (int i = 0; i < creature->nNodes; i++) {
+        creature->nodes[i].acceleration = gravity;
+    }
+    
+    // Compute all the muscle forces and apply them
+    // as node accelerations. We have already assumed
+    // that all nodes have uniform mass for simplicity.
+    for (int i = 0; i < creature->nMuscles; i++) {
+        // Get pointers to all relevant data
+        MUSCLE *muscle = &creature->muscles[i];
+        NODE *first = &creature->nodes[muscle->first];
+        NODE *second = &creature->nodes[muscle->second];
+        if (iszero(muscle->strength)) {
+            // Early exit on this loop
+            continue;
+        }
+        
+        // Get the actual muscle length
+        VECTOR delta = second->position;
+        vector_Subtract(&delta, &first->position);
+        float length = vector_Length(&delta);
+        if (iszero(length)) {
+            // Muscle has no length somehow, this should
+            // be impossible but let's ignore it.
+            continue;
+        }
+        
+        // Get the muscle force. The strength is per unit
+        // of target length, so divide that out too.
+        float targetLength = muscle->isContracted? muscle->contracted: muscle->extended;
+        float forceMagnitude = (muscle->strength/targetLength)*(targetLength - length);
 
-		// Normalize delta and scale by force magnitude all
-		// in one multiplication step.
-		VECTOR force = delta;
-		vector_Multiply(&force, -forceMagnitude/length);
-		
-		// Apply the force to each of the endpoints, assuming
-		// all the masses are uniform.
-		vector_Add(&first->acceleration, &force);
-		vector_Subtract(&second->acceleration, &force);
-	}
-	
-	// Apply frictional force based on the contact and
-	// current velocity.
-	for (int i = 0; i < creature->nNodes; i++) {
-		// Skip nodes that aren't in collision with the ground
-		NODE *node = &creature->nodes[i];
-		if (!iszero(node->position.y) || iszero(node->friction)) {
-			// Early loop exit
-			continue;
-		}
-		
-		// Get the frictional force, which points opposite of the
-		// velocity of the node and is scaled by the frictioniness.
-		VECTOR friction = node->velocity;
-		if (vector_IsZero(&friction)) {
-			// No frictional force
-			continue;
-		}
-		vector_Normalize(&friction);
-		vector_Multiply(&friction, -node->friction);
-		
-		// Apply the frictional force
-		vector_Add(&node->acceleration, &friction);
-	}
+        // Normalize delta and scale by force magnitude all
+        // in one multiplication step.
+        VECTOR force = delta;
+        vector_Multiply(&force, -forceMagnitude/length);
+        
+        // Apply the force to each of the endpoints, assuming
+        // all the masses are uniform.
+        vector_Add(&first->acceleration, &force);
+        vector_Subtract(&second->acceleration, &force);
+    }
+    
+    // Apply frictional force based on the contact and
+    // current velocity.
+    for (int i = 0; i < creature->nNodes; i++) {
+        // Skip nodes that aren't in collision with the ground
+        NODE *node = &creature->nodes[i];
+        if (!iszero(node->position.y) || iszero(node->friction)) {
+            // Early loop exit
+            continue;
+        }
+        
+        // Get the frictional force, which points opposite of the
+        // velocity of the node and is scaled by the frictioniness.
+        VECTOR friction = node->velocity;
+        if (vector_IsZero(&friction)) {
+            // No frictional force
+            continue;
+        }
+        vector_Normalize(&friction);
+        vector_Multiply(&friction, -node->friction);
+        
+        // Apply the frictional force
+        vector_Add(&node->acceleration, &friction);
+    }
 
-	// Integrate the positions
-	for (int i = 0; i < creature->nNodes; i++) {
-		NODE *node = &creature->nodes[i];
+    // Integrate the positions
+    for (int i = 0; i < creature->nNodes; i++) {
+        NODE *node = &creature->nodes[i];
         integrate(&node->velocity, &node->acceleration, dt);
-		integrate(&node->position, &node->velocity, dt);
-		
-		// Collision check
-		if (iszero(node->position.y) || node->position.y < 0.0) {
-			node->position.y = 0.0;
+        integrate(&node->position, &node->velocity, dt);
+        
+        // Collision check
+        if (iszero(node->position.y) || node->position.y < 0.0) {
+            node->position.y = 0.0;
             node->velocity.y *= -RESTITUTION;
-		}
-	}
+        }
+    }
 }
 
 /**********************************************************//**
@@ -377,56 +377,56 @@ void creature_Update(CREATURE *creature, float dt) {
  * @param dt: The time step in seconds.
  **************************************************************/
 static void creature_UpdateDiscrete(CREATURE *creature, float dt, float step) {
-	int fullSteps = (int)(dt / step);
-	float partialStep = fmod(dt, step);
-	for (int i = 0; i < fullSteps; i++) {
-		creature_Update(creature, step);
-	}
-	creature_Update(creature, partialStep);
+    int fullSteps = (int)(dt / step);
+    float partialStep = fmod(dt, step);
+    for (int i = 0; i < fullSteps; i++) {
+        creature_Update(creature, step);
+    }
+    creature_Update(creature, partialStep);
 }
 
 /*============================================================*
  * Creature evaluation
  *============================================================*/
 void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
-	// Get the total number of animation updates within
-	// the given time step.
-	float timeBefore = fmod(creature->clock+ACTION_TIME, ACTION_TIME);
-	int fullActions = (int)(dt / ACTION_TIME);
-	float timeAfter = fmod(creature->clock+dt, ACTION_TIME);
-	
-	// Index into the current behavior
-	int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)*MAX_ACTIONS/BEHAVIOR_TIME);
-	
-	// Animate the current behavior for the remaining "before"
-	// time step, before we flip the action.
+    // Get the total number of animation updates within
+    // the given time step.
+    float timeBefore = fmod(creature->clock+ACTION_TIME, ACTION_TIME);
+    int fullActions = (int)(dt / ACTION_TIME);
+    float timeAfter = fmod(creature->clock+dt, ACTION_TIME);
+    
+    // Index into the current behavior
+    int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)*MAX_ACTIONS/BEHAVIOR_TIME);
+    
+    // Animate the current behavior for the remaining "before"
+    // time step, before we flip the action.
     creature_UpdateDiscrete(creature, timeBefore, TIME_STEP);
     creature->clock += timeBefore;
-	
-	// Step all subsequent actions
-	float endTime = creature->clock + dt;
-	while (creature->clock < endTime) {
-		// Animate the next step by flipping the contract flag of the
-		// muscle specified in the action stream.
-		int action = creature->behavior[behavior].action[animationIndex];
-		if (action != MUSCLE_NONE) {
-			creature->muscles[action].isContracted = !creature->muscles[action].isContracted;
-		}
-		
-		// Determine if this is a full step or not
-		if (fullActions > 0) {
-			// Doing a full step
-			creature_UpdateDiscrete(creature, ACTION_TIME, TIME_STEP);
-			creature->clock += ACTION_TIME;
-			fullActions--;
-		} else {
-			creature_UpdateDiscrete(creature, timeAfter, TIME_STEP);
-			creature->clock += timeAfter;
-		}
-		
-		// Cycle the action index back around
-		animationIndex = (animationIndex + 1) % MAX_ACTIONS;
-	}
+    
+    // Step all subsequent actions
+    float endTime = creature->clock + dt;
+    while (creature->clock < endTime) {
+        // Animate the next step by flipping the contract flag of the
+        // muscle specified in the action stream.
+        int action = creature->behavior[behavior].action[animationIndex];
+        if (action != MUSCLE_NONE) {
+            creature->muscles[action].isContracted = !creature->muscles[action].isContracted;
+        }
+        
+        // Determine if this is a full step or not
+        if (fullActions > 0) {
+            // Doing a full step
+            creature_UpdateDiscrete(creature, ACTION_TIME, TIME_STEP);
+            creature->clock += ACTION_TIME;
+            fullActions--;
+        } else {
+            creature_UpdateDiscrete(creature, timeAfter, TIME_STEP);
+            creature->clock += timeAfter;
+        }
+        
+        // Cycle the action index back around
+        animationIndex = (animationIndex + 1) % MAX_ACTIONS;
+    }
 }
 
 /**********************************************************//**
