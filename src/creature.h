@@ -191,5 +191,11 @@ extern void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt);
  **************************************************************/
 extern float creature_Fitness(CREATURE *creature, BEHAVIOR behavior);
 
+/**********************************************************//**
+ * @brief Draw the creature on the screen.
+ * @param creature: The creature to render.
+ **************************************************************/
+extern void creature_Draw(const CREATURE *creature);
+
 /*============================================================*/
 #endif // _CREATURE_H_

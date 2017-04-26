@@ -7,6 +7,13 @@
  * @date April 2017
  **************************************************************/
 
+// External libraries
+#ifdef WINDOWS
+#include <windows.h>        // OpenGL, GLUT ...
+#endif
+#include <GL/glew.h>        // OpenGL
+#include <GL/glut.h>        // GLUT
+
 // This project
 #include "debug.h"          // assert, eprintf
 #include "vector.h"         // VECTOR
@@ -19,7 +26,7 @@
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.
-#define ACTION_DENSITY 0.5
+#define ACTION_DENSITY 0.1
 
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.1
@@ -350,7 +357,7 @@ void creature_Update(CREATURE *creature, float dt) {
             continue;
         }
         vector_Normalize(&friction);
-        vector_Multiply(&friction, -node->friction);
+        vector_Multiply(&friction, node->friction);
         
         // Apply the frictional force
         vector_Add(&node->acceleration, &friction);
@@ -571,6 +578,46 @@ float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
     // Store the fitness in the memo table
     creature->fitness[behavior] = fitness;
     return fitness;
+}
+
+/*============================================================*
+ * Drawing function
+ *============================================================*/
+void creature_Draw(const CREATURE *creature) {
+    // Draw the creature's nodes
+    for (int i = 0; i < creature->nNodes; i++) {
+        // Draw one node as a sphere
+        const NODE *node = &creature->nodes[i];
+        glPushMatrix();
+        glTranslatef(node->position.x, node->position.y, node->position.z);
+        
+        // Set color based on the node friction
+        glColor3f(node->friction, 0.0, 0.0);
+        glutSolidSphere(0.1, 10, 10);
+        glPopMatrix();
+    }
+    
+    // Draw the wire-frame of the muscles
+    glBegin(GL_LINES);
+    for (int i = 0; i < creature->nMuscles; i++) {
+        // Gather spring data
+        const MUSCLE *muscle = &creature->muscles[i];
+        const NODE *first = &creature->nodes[muscle->first];
+        const NODE *second = &creature->nodes[muscle->second];
+        
+        // Color based on muscle strength and phase
+        float offset = 1.0 - (muscle->strength - MIN_STRENGTH) / (MAX_STRENGTH - MIN_STRENGTH);
+        if (muscle->isContracted) {
+            glColor3f(1.0, offset, offset);
+        } else {
+            glColor3f(offset, offset, 1.0);
+        }
+        
+        // Plot the muscle
+        glVertex3f(first->position.x, first->position.y, first->position.z);
+        glVertex3f(second->position.x, second->position.y, second->position.z);
+    }
+    glEnd();
 }
 
 /*============================================================*/

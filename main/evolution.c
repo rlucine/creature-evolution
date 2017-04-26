@@ -59,6 +59,19 @@ static void render(void) {
     // Draw some information.
     OutputText(0, "%0.1lf FPS", FrameRate());
     
+    // Draw the floor
+    glBegin(GL_TRIANGLE_FAN);
+    glColor3f(0.1, 0.1, 0.1);
+    glVertex3f(-10, 0, -10);
+    glVertex3f(-10, 0, 10);
+    glVertex3f(10, 0, 10);
+    glVertex3f(10, 0, -10);
+    glEnd();
+    
+    // Draw the creature
+    const CREATURE *best = (const CREATURE *)Population.best;
+    creature_Draw(best);
+    
     // Done
     glColor3f(1, 1, 1);
     glFlush();
@@ -71,6 +84,20 @@ static void render(void) {
 static void update(void) {
     // Frame update
     RegisterFrame();
+    
+    // Get the dt
+	static float previous = 0.0;
+	if (previous <= 0.0) {
+		previous = Runtime();
+        return;
+    }
+	float current = Runtime();
+    double dt = current - previous;
+    previous = current;
+    
+    // Update the best creature
+    CREATURE *best = (CREATURE *)Population.best;
+    creature_Animate(best, FORWARD, dt);
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -105,7 +132,7 @@ static float fitness(void *entity) {
 
 static const GENETIC_REQUEST REQUEST = {
     .entitySize = sizeof(CREATURE),
-    .populationSize = 100,
+    .populationSize = 20,
     .random = &random,
     .breed = &breed,
     .fitness = &fitness,
@@ -159,7 +186,7 @@ static bool setup(int argc, char **argv) {
     // Set the camera position
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(0, -8, 0, 0, 0, 0, 0, 0, 1);
+    gluLookAt(5, 15, 0, 0, 0, 0, 0, 1, 0);
     glMatrixMode(0);
     
     // Set up the genetic data
@@ -188,14 +215,14 @@ int main(int argc, char** argv) {
     
     // Genetic algorithm optimization
     int generation = 1;
-    while (generation < 100) {
+    while (generation < 10) {
         genetic_Generation(&Population);
         printf("Generation %d: Fitness %f\n", generation, genetic_BestFitness(&Population));
         generation++;
     }
     
     // Main loop and termination
-    // glutMainLoop();
+    glutMainLoop();
     return EXIT_SUCCESS;
 }
 
