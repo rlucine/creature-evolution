@@ -33,6 +33,15 @@
 /// Genetic algorithm optimization data
 static GENETIC Population;
 
+/// Test creature data
+static CREATURE Test;
+
+/// Creature to animate.
+static CREATURE *Creature;
+
+/// Camera rotation
+static float CameraTheta = 0.0;
+
 /**********************************************************//**
  * @brief Draws raster text on the screen.
  * @param line: The line of the screen to render at.
@@ -50,27 +59,70 @@ static GENETIC Population;
 }
 
 /**********************************************************//**
+ * @brief Controls the camera's zoom and rotation. This
+ * animates the camera using a turntable style.
+ * @param key: The key that was pressed. This assumes the arrow
+ * keys are used (left/right to rotate, up/down to zoom).
+ * @param mouseX: Mouse X position when the key was pressed.
+ * This is ignored.
+ * @param mouseY: Mouse Y position when the key was pressed.
+ * This is ignored.
+ **************************************************************/
+void keyboard(int key, int mouseX, int mouseY) {
+    (void)mouseX;
+    (void)mouseY;
+    
+    // Control the camera's zoom and rotation
+    switch (key) {
+    case GLUT_KEY_LEFT:
+        CameraTheta -= 4;
+        break;
+    
+    case GLUT_KEY_RIGHT:
+        CameraTheta += 4;
+        break;
+
+    default:
+        break;
+    }
+    
+    // Redisplay the screen
+    glutPostRedisplay();
+}
+
+/**********************************************************//**
  * @brief Render the current screen.
  **************************************************************/
 static void render(void) {
     // Set up this frame
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+    // Set the camera position
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(
+        sin(CameraTheta/180)*2, 2.0, cos(CameraTheta/180)*2,
+        0, 0, 0,
+        0, 1, 0
+    );
+    glMatrixMode(0);
+    
     // Draw some information.
     OutputText(0, "%0.1lf FPS", FrameRate());
     
     // Draw the floor
     glBegin(GL_TRIANGLE_FAN);
-    glColor3f(0.1, 0.1, 0.1);
-    glVertex3f(-10, 0, -10);
-    glVertex3f(-10, 0, 10);
-    glVertex3f(10, 0, 10);
-    glVertex3f(10, 0, -10);
+        glColor3f(0.1, 0.1, 0.1);
+        
+        // Floor square
+        glVertex3f(-10, -0.1, -10);
+        glVertex3f(-10, -0.1, 10);
+        glVertex3f(10, -0.1, 10);
+        glVertex3f(10, -0.1, -10);
     glEnd();
     
     // Draw the creature
-    const CREATURE *best = (const CREATURE *)Population.best;
-    creature_Draw(best);
+    creature_Draw(Creature);
     
     // Done
     glColor3f(1, 1, 1);
@@ -96,8 +148,7 @@ static void update(void) {
     previous = current;
     
     // Update the best creature
-    CREATURE *best = (CREATURE *)Population.best;
-    creature_Animate(best, FORWARD, dt);
+    creature_Update(Creature, dt);
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -156,6 +207,7 @@ static bool setup(int argc, char **argv) {
     // Initialize glut callbacks
     glutDisplayFunc(&render);
     glutIdleFunc(&update);
+    glutSpecialFunc(&keyboard);
     
     // Initialize glew
     glewExperimental = GL_TRUE;
@@ -169,7 +221,7 @@ static bool setup(int argc, char **argv) {
     glColor3f(1.0, 1.0, 1.0);
 
     // No backface rendering
-    glDisable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     
     // Depth buffer
@@ -182,12 +234,6 @@ static bool setup(int argc, char **argv) {
     glLoadIdentity();
     float aspect = (float)WINDOW_WIDTH / WINDOW_HEIGHT;
     glFrustum(-FRUSTUM_SIZE*aspect, FRUSTUM_SIZE*aspect, -FRUSTUM_SIZE, FRUSTUM_SIZE, CLIP_NEAR, CLIP_FAR);
-    
-    // Set the camera position
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(5, 15, 0, 0, 0, 0, 0, 1, 0);
-    glMatrixMode(0);
     
     // Set up the genetic data
     if (!genetic_Create(&Population, &REQUEST)) {
@@ -214,6 +260,7 @@ int main(int argc, char** argv) {
     }
     
     // Genetic algorithm optimization
+    /*
     int generation = 1;
     while (generation < 10) {
         genetic_Generation(&Population);
@@ -221,6 +268,13 @@ int main(int argc, char** argv) {
         creature_Print((CREATURE *)genetic_Best(&Population));
         generation++;
     }
+    Creature = (CREATURE *)genetic_Best(&Population);
+    */
+    
+    // Basic animation test
+    creature_CreateRandom(&Test);
+    Creature = &Test;
+    creature_Print(Creature);
     
     // Main loop and termination
     glutMainLoop();
