@@ -38,6 +38,96 @@
 /// The system integrator
 static INTEGRAL integrate = &EulerMethod;
 
+/**********************************************************//**
+ * @brief Test if the give CREATURE is valid for debugging.
+ * @param creature: The creature to test.
+ **************************************************************/
+static void AssertCreature(const CREATURE *creature) {
+    // Proper number of nodes in creature
+    assert(creature->nNodes >= MIN_NODES);
+    assert(creature->nNodes <= MAX_NODES);
+    
+    // Proper number of muscles in creature
+    assert(creature->nMuscles >= creature->nNodes);
+    assert(creature->nMuscles <= MAX_MUSCLES);
+    
+    // Node verification
+    for (int i = 0; i < creature->nNodes; i++) {
+        const NODE *node = &creature->nodes[i];
+        
+        // Friction of the node
+        assert(node->friction >= MIN_FRICTION);
+        assert(node->friction <= MAX_FRICTION);
+        
+        // Collision check
+        assert(node->initial.y >= 0.0);
+        
+        // NaN check
+        assert(!vector_IsNaN(&node->initial));
+        assert(!vector_IsNaN(&node->position));
+        assert(!vector_IsNaN(&node->velocity));
+        assert(!vector_IsNaN(&node->acceleration));
+    }
+    
+    // Muscle verification
+    for (int i = 0; i < creature->nMuscles; i++) {
+        const MUSCLE *muscle = &creature->muscles[i];
+        
+        // Muscle order check
+        assert(muscle->first >= 0);
+        assert(muscle->first < creature->nMuscles);
+        assert(muscle->second >= 0);
+        assert(muscle->second < creature->nMuscles);
+        
+        // Muscle length check
+        assert(muscle->contracted <= muscle->extended);
+        assert(muscle->contracted >= MIN_CONTRACTED_LENGTH);
+        assert(muscle->extended >= MIN_CONTRACTED_LENGTH);
+        assert(muscle->contracted <= MAX_MUSCLE_LENGTH);
+        assert(muscle->extended <= MAX_MUSCLE_LENGTH);
+        
+        // Muscle strength check
+        assert(muscle->strength >= MIN_STRENGTH);
+        assert(muscle->strength <= MAX_STRENGTH);
+    }
+}
+
+// Turn off this assert function if the DEBUG macro is off
+#ifndef DEBUG
+#define AssertCreature(c) (void)0
+#endif
+
+/**********************************************************//**
+ * @brief Print the given creature information to stdout.
+ * @param creature: The creature to inspect.
+ **************************************************************/
+void creature_Print(const CREATURE *creature) {
+    // Header information
+    printf("Creature 0x%p: ", (void *)creature);
+    printf("%d nodes, ", creature->nNodes);
+    printf("%d muscles\n", creature->nMuscles);
+    
+    // Node information
+    for (int i = 0; i < creature->nNodes; i++) {
+        const NODE *node = &creature->nodes[i];
+        printf("  Node %d: ", i);
+        printf("at <%.2f, %.2f, %.2f>, ", node->initial.x, node->initial.y, node->initial.z);
+        printf("friction %f\n", node->friction);
+    }
+    printf("\n");
+    
+    // Muscle information
+    for (int i = 0; i < creature->nMuscles; i++) {
+        const MUSCLE *muscle = &creature->muscles[i];
+        printf("  Muscle %d ", i);
+        printf("(%d to %d): ", muscle->first, muscle->second);
+        printf("length %.2f to %.2f ", muscle->contracted, muscle->extended);
+        printf((muscle->isContracted)? "(contracting)": "(extending)");
+        printf(", strength %.2f\n", muscle->strength);
+    }
+    printf("\n");
+}
+
 /*============================================================*
  * Random creature generation
  *============================================================*/

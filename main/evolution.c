@@ -218,6 +218,7 @@ int main(int argc, char** argv) {
     while (generation < 10) {
         genetic_Generation(&Population);
         printf("Generation %d: Fitness %f\n", generation, genetic_BestFitness(&Population));
+        creature_Print((CREATURE *)genetic_Best(&Population));
         generation++;
     }
     

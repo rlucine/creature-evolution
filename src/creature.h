@@ -197,5 +197,11 @@ extern float creature_Fitness(CREATURE *creature, BEHAVIOR behavior);
  **************************************************************/
 extern void creature_Draw(const CREATURE *creature);
 
+/**********************************************************//**
+ * @brief Print the creature information on the screen.
+ * @param creature: The creature to inspect.
+ **************************************************************/
+extern void creature_Print(const CREATURE *creature);
+
 /*============================================================*/
 #endif // _CREATURE_H_
