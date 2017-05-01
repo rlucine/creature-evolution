@@ -80,7 +80,7 @@ typedef struct {
     void *entities;             ///< The actual creature data stored in any order.
     HEAP heap;                  ///< Heap used to sort organisms.
     void *newborn;              ///< List used to capture all the newborn creatures.
-    const void *best;           ///< The best individual in the population.
+    void *best;                 ///< The best individual in the population.
     float bestFitness;          ///< The fitness of the best individual.
 } GENETIC;
 
@@ -98,7 +98,7 @@ extern bool genetic_Create(GENETIC *data, const GENETIC_REQUEST *request);
  * @param data: Genetic algorithm data.
  * @return Pointer to the best entity, or NULL if invalid.
  **************************************************************/
-static inline const void *genetic_Best(const GENETIC *data) {
+static inline void *genetic_Best(const GENETIC *data) {
     return data->best;
 }
 
