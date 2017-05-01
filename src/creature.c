@@ -31,6 +31,7 @@
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.1
 #define GRAVITY -9.8
+#define DAMPING 10
 
 /// Number of trials to evaluate fitness.
 #define FITNESS_TRIALS 10
@@ -151,6 +152,11 @@ void creature_CreateRandom(CREATURE *creature) {
         node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
         node->initial.y = uniform(0.0, MAX_POSITION);
         node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
+        
+        // Initial position, velocity, acceleration
+        node->position = node->initial;
+        vector_Set(&node->velocity, 0, 0, 0);
+        vector_Set(&node->acceleration, 0, 0, 0);
 
         // Random frictionness
         node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
@@ -177,9 +183,16 @@ void creature_CreateRandom(CREATURE *creature) {
             muscle->second = (muscle->second + 1) % creature->nNodes;
         }
         
+        // Get the actual muscle distance
+        const NODE *first = &creature->nodes[muscle->first];
+        const NODE *second = &creature->nodes[muscle->second];
+        VECTOR delta = second->initial;
+        vector_Subtract(&delta, &first->initial);
+        float length = vector_Length(&delta);
+        
         // Get random contract or expand lengths
-        muscle->extended = uniform(MIN_EXTENDED_LENGTH, MAX_MUSCLE_LENGTH);
-        muscle->contracted = uniform(MIN_CONTRACTED_LENGTH, muscle->extended);
+        muscle->extended = length;
+        muscle->contracted = uniform(length/2, length);
         muscle->isContracted = false;
         
         // Random muscle strength
@@ -373,10 +386,13 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
     }
 }
 
-/*============================================================*
- * Creature evaluation
- *============================================================*/
-void creature_Update(CREATURE *creature, float dt) {
+ /**********************************************************//**
+ * @brief Updates the creature's mass-spring system independent
+ * of any discretized time step or animation configuration.
+ * @param creature: The creature to update.
+ * @param dt: The time step in seconds.
+ **************************************************************/
+static void creature_UpdateFull(CREATURE *creature, float dt) {
     // Updates the creature based on the current state of all
     // of its nodes and muscles. This update does not attempt
     // to animate a behavior or make changes to the creature's
@@ -398,44 +414,50 @@ void creature_Update(CREATURE *creature, float dt) {
         MUSCLE *muscle = &creature->muscles[i];
         NODE *first = &creature->nodes[muscle->first];
         NODE *second = &creature->nodes[muscle->second];
+        
+        // No force exterted when muscle has no strength
         if (iszero(muscle->strength)) {
-            // Early exit on this loop
             continue;
         }
         
-        // Get the actual muscle length
+        // Get the current muscle length and normalize the
+        // direction of the muscle.
         VECTOR delta = second->position;
         vector_Subtract(&delta, &first->position);
         float length = vector_Length(&delta);
-        if (iszero(length)) {
-            // Muscle has no length somehow, this should
-            // be impossible but let's ignore it.
-            continue;
-        }
+        vector_Multiply(&delta, 1.0 / length);
         
         // Get the muscle force. The strength is per unit
         // of target length, so divide that out too.
         float targetLength = muscle->isContracted? muscle->contracted: muscle->extended;
-        float forceMagnitude = (muscle->strength/targetLength)*(targetLength - length);
+        float forceMagnitude = -(muscle->strength/targetLength)*(targetLength - length);
+        
+        // Get the velocity damping force. These velocities are along 
+        // the vector connecting the masses, not in general.
+        float firstVelocity = vector_Dot(&delta, &first->velocity);
+        float secondVelocity = vector_Dot(&delta, &second->velocity);
+        forceMagnitude -= DAMPING*(firstVelocity-secondVelocity);
 
         // Normalize delta and scale by force magnitude all
         // in one multiplication step.
         VECTOR force = delta;
-        vector_Multiply(&force, -forceMagnitude/length);
+        vector_Multiply(&force, forceMagnitude);
         
         // Apply the force to each of the endpoints, assuming
         // all the masses are uniform.
         vector_Add(&first->acceleration, &force);
         vector_Subtract(&second->acceleration, &force);
     }
-    
+
     // Apply frictional force based on the contact and
     // current velocity.
     for (int i = 0; i < creature->nNodes; i++) {
         // Skip nodes that aren't in collision with the ground
         NODE *node = &creature->nodes[i];
+        
+        // No friction applied to nodes that aren't on the ground
+        // or nodes that are frictionless.
         if (!iszero(node->position.y) || iszero(node->friction)) {
-            // Early loop exit
             continue;
         }
         
@@ -443,11 +465,14 @@ void creature_Update(CREATURE *creature, float dt) {
         // velocity of the node and is scaled by the frictioniness.
         VECTOR friction = node->velocity;
         if (vector_IsZero(&friction)) {
-            // No frictional force
             continue;
         }
         vector_Normalize(&friction);
-        vector_Multiply(&friction, node->friction);
+        vector_Multiply(&friction, -node->friction);
+        
+        // Project frictional force onto XZ plane
+        // only (the ground).
+        friction.y = 0.0;
         
         // Apply the frictional force
         vector_Add(&node->acceleration, &friction);
@@ -467,19 +492,16 @@ void creature_Update(CREATURE *creature, float dt) {
     }
 }
 
-/**********************************************************//**
- * @brief Updates the creature's mass-spring system. This
- * upsate is discretized to use the given TIME_STEP variable.
- * @param creature: The creature to update.
- * @param dt: The time step in seconds.
- **************************************************************/
-static void creature_UpdateDiscrete(CREATURE *creature, float dt, float step) {
-    int fullSteps = (int)(dt / step);
-    float partialStep = fmod(dt, step);
+/*============================================================*
+ * Creature discretized update
+ *============================================================*/
+void creature_Update(CREATURE *creature, float dt) {
+    int fullSteps = (int)(dt / TIME_STEP);
+    float partialStep = fmod(dt, TIME_STEP);
     for (int i = 0; i < fullSteps; i++) {
-        creature_Update(creature, step);
+        creature_UpdateFull(creature, TIME_STEP);
     }
-    creature_Update(creature, partialStep);
+    creature_UpdateFull(creature, partialStep);
 }
 
 /*============================================================*
@@ -497,7 +519,7 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
     
     // Animate the current behavior for the remaining "before"
     // time step, before we flip the action.
-    creature_UpdateDiscrete(creature, timeBefore, TIME_STEP);
+    creature_Update(creature, timeBefore);
     creature->clock += timeBefore;
     
     // Step all subsequent actions
@@ -513,11 +535,11 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
         // Determine if this is a full step or not
         if (fullActions > 0) {
             // Doing a full step
-            creature_UpdateDiscrete(creature, ACTION_TIME, TIME_STEP);
+            creature_Update(creature, ACTION_TIME);
             creature->clock += ACTION_TIME;
             fullActions--;
         } else {
-            creature_UpdateDiscrete(creature, timeAfter, TIME_STEP);
+            creature_Update(creature, timeAfter);
             creature->clock += timeAfter;
         }
         
@@ -581,7 +603,7 @@ void creature_Reset(CREATURE *creature) {
     VECTOR next;
     VECTOR delta;
     do {
-        creature_Update(creature, TIME_STEP);
+        creature_UpdateFull(creature, TIME_STEP);
         next = AverageVelocity(creature);
         delta = next;
         vector_Subtract(&delta, &start);
@@ -682,8 +704,8 @@ void creature_Draw(const CREATURE *creature) {
         glTranslatef(node->position.x, node->position.y, node->position.z);
         
         // Set color based on the node friction
-        glColor3f(node->friction, 0.0, 0.0);
-        glutSolidSphere(0.1, 10, 10);
+        glColor3f(1.0, 1.0-node->friction, 1.0-node->friction);
+        glutSolidSphere(0.01, 20, 20);
         glPopMatrix();
     }
     
@@ -695,16 +717,18 @@ void creature_Draw(const CREATURE *creature) {
         const NODE *first = &creature->nodes[muscle->first];
         const NODE *second = &creature->nodes[muscle->second];
         
-        // Color based on muscle strength and phase
-        float offset = 1.0 - (muscle->strength - MIN_STRENGTH) / (MAX_STRENGTH - MIN_STRENGTH);
-        if (muscle->isContracted) {
-            glColor3f(1.0, offset, offset);
-        } else {
-            glColor3f(offset, offset, 1.0);
-        }
-        
         // Plot the muscle
+        if (iszero(first->position.y)) {
+            glColor3f(0.0, 0.0, 1.0);
+        } else {
+            glColor3f(1.0, 1.0, 1.0);
+        }
         glVertex3f(first->position.x, first->position.y, first->position.z);
+        if (iszero(second->position.y)) {
+            glColor3f(0.0, 0.0, 1.0);
+        } else {
+            glColor3f(1.0, 1.0, 1.0);
+        }
         glVertex3f(second->position.x, second->position.y, second->position.z);
     }
     glEnd();

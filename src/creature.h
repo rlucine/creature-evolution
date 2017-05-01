@@ -60,8 +60,8 @@ typedef struct {
 #define MAX_ACTIONS (MAX_MUSCLES*MAX_MUSCLES)
 
 // Configurations
-#define MIN_STRENGTH 0.001  ///< The minumum strength of a MUSCLE.
-#define MAX_STRENGTH 100.0  ///< Maximum strength of a MUSCLE.
+#define MIN_STRENGTH 50.0   ///< The minumum strength of a MUSCLE.
+#define MAX_STRENGTH 200.0   ///< Maximum strength of a MUSCLE.
 
 /// The minimum length of a contracted MUSCLE.
 #define MIN_CONTRACTED_LENGTH 0.25
@@ -167,8 +167,8 @@ extern void creature_Mutate(CREATURE *creature);
 extern void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *child);
 
 /**********************************************************//**
- * @brief Updates the creature's mass-spring system independent
- * of any discretized time step or animation configuration.
+ * @brief Updates the creature's mass-spring system. This
+ * upsate is discretized to use the given TIME_STEP variable.
  * @param creature: The creature to update.
  * @param dt: The time step in seconds.
  **************************************************************/
