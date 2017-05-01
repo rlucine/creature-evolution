@@ -31,13 +31,13 @@ typedef struct {
 
 // Node amounts
 #define MIN_NODES 4         ///< Minimum number of NODEs needed per creature.
-#define MAX_NODES 16        ///< Maximum number of NODEs per creature.
+#define MAX_NODES 8         ///< Maximum number of NODEs per creature.
 
 // Node properties
 #define MIN_POSITION -1.0   ///< Minimum initial XZ position of a NODE.
 #define MAX_POSITION 1.0    ///< Maximum initial XZ position of a NODE.
-#define MIN_FRICTION 0.0    ///< Minimum friction of a NODE.
-#define MAX_FRICTION 1.0    ///< Maximum friction of a NODE.
+#define MIN_FRICTION 0.5    ///< Minimum friction of a NODE.
+#define MAX_FRICTION 2.0    ///< Maximum friction of a NODE.
 
 /**********************************************************//**
  * @struct MUSCLE
@@ -53,11 +53,11 @@ typedef struct {
 } MUSCLE;
 
 /// Maximum number of MUSCLEs per creature.
-#define MAX_MUSCLES (MAX_NODES*2)
+#define MAX_MUSCLES 32
 
 /// @brief The maximum number of actions occurring in
 /// one period of a cyclic MOTION.
-#define MAX_ACTIONS (MAX_MUSCLES*MAX_MUSCLES)
+#define MAX_ACTIONS 8
 
 // Configurations
 #define MIN_STRENGTH 50.0   ///< The minumum strength of a MUSCLE.
@@ -101,7 +101,7 @@ typedef enum {
 } BEHAVIOR;
 
 /// The total number of distinct BEHAVIOR keys.
-#define N_BEHAVIORS 4
+#define N_BEHAVIORS 5
 
 /// The actual time spent to perform a BEHAVIOR in seconds.
 #define BEHAVIOR_TIME 1.0
@@ -118,6 +118,7 @@ typedef struct {
     int nNodes;             ///< Number of distinct nodes.
     int nMuscles;           ///< Number of distinct muscles.
     float clock;            ///< The creature's biological clock.
+    float energy;           ///< Energy spent by the creature.
     
     /// NODE data for one creature.
     NODE nodes[MAX_NODES];

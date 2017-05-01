@@ -33,9 +33,6 @@
 /// Genetic algorithm optimization data
 static GENETIC Population;
 
-/// Test creature data
-static CREATURE Test;
-
 /// Creature to animate.
 static CREATURE *Creature;
 
@@ -148,7 +145,7 @@ static void update(void) {
     previous = current;
     
     // Update the best creature
-    creature_Update(Creature, dt);
+    creature_Animate(Creature, FORWARD, dt);
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -183,7 +180,7 @@ static float fitness(void *entity) {
 
 static const GENETIC_REQUEST REQUEST = {
     .entitySize = sizeof(CREATURE),
-    .populationSize = 20,
+    .populationSize = 100,
     .random = &random,
     .breed = &breed,
     .fitness = &fitness,
@@ -260,21 +257,13 @@ int main(int argc, char** argv) {
     }
     
     // Genetic algorithm optimization
-    /*
     int generation = 1;
-    while (generation < 10) {
+    while (generation < 100) {
         genetic_Generation(&Population);
         printf("Generation %d: Fitness %f\n", generation, genetic_BestFitness(&Population));
-        creature_Print((CREATURE *)genetic_Best(&Population));
         generation++;
     }
     Creature = (CREATURE *)genetic_Best(&Population);
-    */
-    
-    // Basic animation test
-    creature_CreateRandom(&Test);
-    Creature = &Test;
-    creature_Print(Creature);
     
     // Main loop and termination
     glutMainLoop();

@@ -22,81 +22,23 @@
 #include "creature.h"       // CREATURE
 
 /// Forced time step used in discretized updates.
-#define TIME_STEP 0.001
+#define TIME_STEP 0.01
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.
-#define ACTION_DENSITY 0.1
+#define ACTION_DENSITY 0.5
 
 /// Bounciness as a node hits the ground.
-#define RESTITUTION 0.1
+#define RESTITUTION 0.6
 #define GRAVITY -9.8
-#define DAMPING 10
+#define DAMPING 1
+#define FRICTION 1
 
 /// Number of trials to evaluate fitness.
 #define FITNESS_TRIALS 10
 
 /// The system integrator
 static INTEGRAL integrate = &EulerMethod;
-
-/**********************************************************//**
- * @brief Test if the give CREATURE is valid for debugging.
- * @param creature: The creature to test.
- **************************************************************/
-static void AssertCreature(const CREATURE *creature) {
-    // Proper number of nodes in creature
-    assert(creature->nNodes >= MIN_NODES);
-    assert(creature->nNodes <= MAX_NODES);
-    
-    // Proper number of muscles in creature
-    assert(creature->nMuscles >= creature->nNodes);
-    assert(creature->nMuscles <= MAX_MUSCLES);
-    
-    // Node verification
-    for (int i = 0; i < creature->nNodes; i++) {
-        const NODE *node = &creature->nodes[i];
-        
-        // Friction of the node
-        assert(node->friction >= MIN_FRICTION);
-        assert(node->friction <= MAX_FRICTION);
-        
-        // Collision check
-        assert(node->initial.y >= 0.0);
-        
-        // NaN check
-        assert(!vector_IsNaN(&node->initial));
-        assert(!vector_IsNaN(&node->position));
-        assert(!vector_IsNaN(&node->velocity));
-        assert(!vector_IsNaN(&node->acceleration));
-    }
-    
-    // Muscle verification
-    for (int i = 0; i < creature->nMuscles; i++) {
-        const MUSCLE *muscle = &creature->muscles[i];
-        
-        // Muscle order check
-        assert(muscle->first >= 0);
-        assert(muscle->first < creature->nMuscles);
-        assert(muscle->second >= 0);
-        assert(muscle->second < creature->nMuscles);
-        
-        // Muscle length check
-        assert(muscle->contracted <= muscle->extended);
-        assert(muscle->contracted >= MIN_CONTRACTED_LENGTH);
-        assert(muscle->extended >= MIN_CONTRACTED_LENGTH);
-        assert(muscle->contracted <= MAX_MUSCLE_LENGTH);
-        assert(muscle->extended <= MAX_MUSCLE_LENGTH);
-        
-        // Muscle strength check
-        assert(muscle->strength >= MIN_STRENGTH);
-        assert(muscle->strength <= MAX_STRENGTH);
-    }
-}
-
-// Turn off this assert function if the DEBUG macro is off
-#ifndef DEBUG
-#define AssertCreature(c) (void)0
-#endif
 
 /**********************************************************//**
  * @brief Print the given creature information to stdout.
@@ -137,6 +79,7 @@ void creature_CreateRandom(CREATURE *creature) {
     creature->nNodes = randint(MIN_NODES, MAX_NODES);
     creature->nMuscles = randint(creature->nNodes, MAX_MUSCLES);
     creature->clock = 0.0;
+    creature->energy = 0.0;
     
     // Generate initial fitness table.
     for (int i = 0; i < N_BEHAVIORS; i++) {
@@ -192,7 +135,7 @@ void creature_CreateRandom(CREATURE *creature) {
         
         // Get random contract or expand lengths
         muscle->extended = length;
-        muscle->contracted = uniform(length/2, length);
+        muscle->contracted = uniform(length/10.0, length);
         muscle->isContracted = false;
         
         // Random muscle strength
@@ -380,7 +323,7 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
     }
     
     // Mutate the child at random
-    int nMutations = randint(0, MAX_NODES);
+    int nMutations = randint(0, MAX_ACTIONS);
     for (int i = 0; i < nMutations; i++) {
         creature_Mutate(child);
     }
@@ -443,6 +386,9 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         VECTOR force = delta;
         vector_Multiply(&force, forceMagnitude);
         
+        // Energy expenditure
+        creature->energy += dt*fabs(forceMagnitude);
+        
         // Apply the force to each of the endpoints, assuming
         // all the masses are uniform.
         vector_Add(&first->acceleration, &force);
@@ -468,7 +414,7 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
             continue;
         }
         vector_Normalize(&friction);
-        vector_Multiply(&friction, -node->friction);
+        vector_Multiply(&friction, -(FRICTION + node->friction));
         
         // Project frictional force onto XZ plane
         // only (the ground).
@@ -510,12 +456,12 @@ void creature_Update(CREATURE *creature, float dt) {
 void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
     // Get the total number of animation updates within
     // the given time step.
-    float timeBefore = fmod(creature->clock+ACTION_TIME, ACTION_TIME);
+    float timeBefore = ACTION_TIME - fmod(creature->clock+ACTION_TIME, ACTION_TIME);
     int fullActions = (int)(dt / ACTION_TIME);
     float timeAfter = fmod(creature->clock+dt, ACTION_TIME);
     
     // Index into the current behavior
-    int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)*MAX_ACTIONS/BEHAVIOR_TIME);
+    int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)/BEHAVIOR_TIME*MAX_ACTIONS);
     
     // Animate the current behavior for the remaining "before"
     // time step, before we flip the action.
@@ -582,6 +528,7 @@ static inline VECTOR AverageVelocity(const CREATURE *creature) {
 void creature_Reset(CREATURE *creature) {
     // Reset biological clock
     creature->clock = 0.0;
+    creature->energy = 0.0;
     
     // Deactivate all muscles
     for (int i = 0; i < creature->nMuscles; i++) {
@@ -595,26 +542,6 @@ void creature_Reset(CREATURE *creature) {
         node->position = node->initial;
         vector_Set(&node->velocity, 0.0, 0.0, 0.0);
         vector_Set(&node->acceleration, 0.0, 0.0, 0.0);
-    }
-    
-    // Approach rest by stepping through time until the
-    // creature has no velocity.
-    VECTOR start = AverageVelocity(creature);
-    VECTOR next;
-    VECTOR delta;
-    do {
-        creature_UpdateFull(creature, TIME_STEP);
-        next = AverageVelocity(creature);
-        delta = next;
-        vector_Subtract(&delta, &start);
-        start = next;
-    } while (!vector_IsZero(&delta));
-    
-    // Store these new coordinates as the real initial
-    // node positions.
-    for (int i = 0; i < creature->nNodes; i++) {
-        NODE *node = &creature->nodes[i];
-        node->initial = node->position;
     }
 }
 
@@ -661,6 +588,22 @@ static float WalkFitness(CREATURE *creature) {
     return totalFitness / FITNESS_TRIALS;
 }
 
+/**********************************************************//**
+ * @brief Gets the standing fitness of the creature.
+ * @param creature: The creature to inspect.
+ * @return The fitness of the idle animation.
+ **************************************************************/
+static float StandFitness(CREATURE *creature) {
+    creature_Animate(creature, FORWARD, BEHAVIOR_TIME*FITNESS_TRIALS);
+    int max = creature->nodes[0].position.y;
+    for (int i = 1; i < creature->nNodes; i++) {
+        if (creature->nodes[i].position.y > max) {
+            max = creature->nodes[i].position.y;
+        }
+    }
+    return max;
+}
+
 /*============================================================*
  * Overall fitness function
  *============================================================*/
@@ -681,10 +624,19 @@ float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
     case FORWARD:
         fitness = WalkFitness(creature);
         break;
+        
+    case WAIT:
+        fitness = StandFitness(creature);
+        break;
     
     default:
         fitness = FITNESS_INVALID;
         break;
+    }
+    
+    // Energy expenditure
+    if (!iszero(creature->energy)) {
+        fitness /= creature->energy;
     }
     
     // Store the fitness in the memo table
@@ -696,19 +648,6 @@ float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
  * Drawing function
  *============================================================*/
 void creature_Draw(const CREATURE *creature) {
-    // Draw the creature's nodes
-    for (int i = 0; i < creature->nNodes; i++) {
-        // Draw one node as a sphere
-        const NODE *node = &creature->nodes[i];
-        glPushMatrix();
-        glTranslatef(node->position.x, node->position.y, node->position.z);
-        
-        // Set color based on the node friction
-        glColor3f(1.0, 1.0-node->friction, 1.0-node->friction);
-        glutSolidSphere(0.01, 20, 20);
-        glPopMatrix();
-    }
-    
     // Draw the wire-frame of the muscles
     glBegin(GL_LINES);
     for (int i = 0; i < creature->nMuscles; i++) {
