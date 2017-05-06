@@ -33,7 +33,7 @@
 #define RESTITUTION 0.6
 #define GRAVITY -1.0
 #define DAMPING 0.1
-#define MAX_MUTATIONS 1
+#define MAX_MUTATIONS 4
 
 /// Number of trials to evaluate fitness.
 #define FITNESS_TRIALS 10
@@ -525,7 +525,7 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         if (vector_IsZero(&friction)) {
             continue;
         }
-        vector_Multiply(&friction, -node->friction);
+        vector_Multiply(&friction, -20*node->friction);
         
         // Project frictional force onto XZ plane
         // only (the ground).
@@ -578,21 +578,28 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
     
     // Get the total number of animation updates within
     // the given time step.
-    float timeBefore = ACTION_TIME - fmod(creature->clock+ACTION_TIME, ACTION_TIME);
+    float timeBefore = ACTION_TIME - fmod(creature->clock, ACTION_TIME);
     int fullActions = (int)(dt / ACTION_TIME);
     float timeAfter = fmod(creature->clock+dt, ACTION_TIME);
+    if (dt < timeBefore) {
+        timeBefore = dt;
+        fullActions = 0;
+        timeAfter = 0.0;
+    }
     
     // Index into the current behavior
-    int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)/BEHAVIOR_TIME*MAX_ACTIONS);
+    int animationIndex = (int)(fmod(creature->clock, BEHAVIOR_TIME)/ACTION_TIME);
     
     // Animate the current behavior for the remaining "before"
     // time step, before we flip the action.
-    creature_Update(creature, timeBefore);
-    creature->clock += timeBefore;
+    if (!iszero(timeBefore)) {
+        creature_Update(creature, timeBefore);
+        creature->clock += timeBefore;
+    }
     
     // Step all subsequent actions
     float endTime = creature->clock + dt;
-    while (creature->clock < endTime) {
+    while (fullActions >= 0) {
         // Animate the next step by flipping the contract flag of the
         // muscle specified in the action stream.
         int action = creature->behavior[behavior].action[animationIndex];
@@ -600,19 +607,19 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
             creature->muscles[action].isContracted = !creature->muscles[action].isContracted;
         }
         
+        // Cycle the action index back around
+        animationIndex = (animationIndex + 1) % MAX_ACTIONS;
+        
         // Determine if this is a full step or not
         if (fullActions > 0) {
             // Doing a full step
             creature_Update(creature, ACTION_TIME);
             creature->clock += ACTION_TIME;
-            fullActions--;
-        } else {
+        } else if (!iszero(timeAfter)) {
             creature_Update(creature, timeAfter);
             creature->clock += timeAfter;
         }
-        
-        // Cycle the action index back around
-        animationIndex = (animationIndex + 1) % MAX_ACTIONS;
+        fullActions--;
     }
 }
 
