@@ -87,7 +87,7 @@ static void render(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(
-        sin(CameraTheta/180)*2, 2.0, cos(CameraTheta/180)*2,
+        sin(CameraTheta/180*M_PI)*2, 2.0, cos(CameraTheta/180*M_PI)*2,
         0, 0, 0,
         0, 1, 0
     );
@@ -258,7 +258,7 @@ int main(int argc, char** argv) {
     }
     
     // Initialize variables
-    CameraTheta = 0.0;
+    CameraTheta = 270.0;
     
     // Mode
     if (argc == 1) {
@@ -271,7 +271,7 @@ int main(int argc, char** argv) {
         // Genetic algorithm optimization
         printf("Seed %d\n", Seed);
         int generation = 1;
-        while (generation < 250) {
+        while (generation < 1000) {
             genetic_Generation(&Population);
             Creature = (CREATURE *)genetic_Best(&Population);
             printf("Generation %d: ", generation);

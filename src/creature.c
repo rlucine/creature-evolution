@@ -32,8 +32,9 @@
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.6
 #define GRAVITY -1.0
-#define DAMPING 0.1
+#define DAMPING 1.5
 #define MAX_MUTATIONS 4
+#define FRICTION 20.0
 
 /// Number of trials to evaluate fitness.
 #define FITNESS_TRIALS 10
@@ -525,7 +526,7 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         if (vector_IsZero(&friction)) {
             continue;
         }
-        vector_Multiply(&friction, -20*node->friction);
+        vector_Multiply(&friction, -FRICTION*node->friction);
         
         // Project frictional force onto XZ plane
         // only (the ground).
@@ -598,7 +599,6 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
     }
     
     // Step all subsequent actions
-    float endTime = creature->clock + dt;
     while (fullActions >= 0) {
         // Animate the next step by flipping the contract flag of the
         // muscle specified in the action stream.

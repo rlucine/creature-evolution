@@ -37,7 +37,7 @@ typedef struct {
 // Node properties
 #define MIN_POSITION -1.0   ///< Minimum initial XZ position of a NODE.
 #define MAX_POSITION 1.0    ///< Maximum initial XZ position of a NODE.
-#define MIN_FRICTION 0.5    ///< Minimum friction of a NODE.
+#define MIN_FRICTION 0.1    ///< Minimum friction of a NODE.
 #define MAX_FRICTION 2.0    ///< Maximum friction of a NODE.
 
 /**********************************************************//**
@@ -59,10 +59,10 @@ typedef struct {
 
 /// @brief The maximum number of actions occurring in
 /// one period of a cyclic MOTION.
-#define MAX_ACTIONS 16
+#define MAX_ACTIONS 64
 
 // Configurations
-#define MIN_STRENGTH 5.0    ///< The minumum strength of a MUSCLE.
+#define MIN_STRENGTH 1.0    ///< The minumum strength of a MUSCLE.
 #define MAX_STRENGTH 20.0   ///< Maximum strength of a MUSCLE.
 
 /// The minimum length of a contracted MUSCLE.
