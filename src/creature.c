@@ -21,24 +21,29 @@
 #include "random.h"         // randint
 #include "creature.h"       // CREATURE
 
+//**************************************************************
 /// Forced time step used in discretized updates.
 #define TIME_STEP 0.01
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.
-#define ACTION_DENSITY 0.5
+#define ACTION_DENSITY 0.1
 
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.6
-#define GRAVITY -9.8
+#define GRAVITY -1.0
 #define DAMPING 1
-#define FRICTION 1
+#define MAX_MUTATIONS 1
 
 /// Number of trials to evaluate fitness.
 #define FITNESS_TRIALS 10
 
+//**************************************************************
 /// The system integrator
-static INTEGRAL integrate = &EulerMethod;
+static INTEGRAL integrate = &MidpointMethod;
+
+/// Gravity vector.
+static const VECTOR GRAVITY_VECTOR = {0.0, GRAVITY, 0.0};
 
 /**********************************************************//**
  * @brief Print the given creature information to stdout.
@@ -71,6 +76,102 @@ void creature_Print(const CREATURE *creature) {
     printf("\n");
 }
 
+/**********************************************************//**
+ * @brief Generate a random node. Assume all nodes reside
+ * inside the unit hemisphere for simplicity.
+ * @param creature: The creature to generate for.
+ * @param index: The node to generate.
+ **************************************************************/
+static void GenerateNode(CREATURE *creature, int index) {
+    // Node to generate
+    NODE *node = &creature->nodes[index];
+    
+    // Initialize this node's position
+    node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
+    node->initial.y = uniform(0.0, MAX_POSITION);
+    node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
+    
+    // Initial position, velocity, acceleration
+    node->position = node->initial;
+    vector_Set(&node->velocity, 0, 0, 0);
+    vector_Set(&node->acceleration, 0, 0, 0);
+
+    // Random frictionness
+    node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
+}
+
+/**********************************************************//**
+ * @brief Generate a random muscle. This must ensure all
+ * the nodes are attached to each other so we don't get
+ * a weird degenerate creature.
+ * @param creature: The creature to generate for.
+ * @param index: The muscle to generate.
+ **************************************************************/
+static void GenerateMuscle(CREATURE *creature, int index) {
+    // Muscle to generate
+    MUSCLE *muscle = &creature->muscles[index];
+    
+    // Forced muscle connection for each node
+    if (index < creature->nNodes) {
+        muscle->first = index;
+        
+        // Ensure the creature is fully connected. The
+        // proof that this works comes from induction:
+        // if the first n nodes are fully connected and
+        // we must attach node n+1 to one of the previous
+        // n nodes, then the n+1 nodes are fully connected.
+        if (muscle->first > 0) {
+            muscle->second = randint(0, index-1);
+        } else {
+            muscle->second = 0;
+        }
+    } else {
+        muscle->first = randint(0, creature->nNodes-1);
+        muscle->second = randint(0, creature->nNodes-1);
+    }
+    
+    // Ban self-edges from appearing
+    if (muscle->first == muscle->second) {
+        // Jump to next if a self-muscle appears
+        muscle->second = (muscle->second + 1) % creature->nNodes;
+    }
+    
+    // Get the actual muscle length from the initial state.
+    const NODE *first = &creature->nodes[muscle->first];
+    const NODE *second = &creature->nodes[muscle->second];
+    VECTOR delta = second->initial;
+    vector_Subtract(&delta, &first->initial);
+    float length = vector_Length(&delta);
+    
+    // Get random contract or expand lengths
+    muscle->extended = length;
+    muscle->contracted = uniform(length/2.0, length);
+    muscle->isContracted = false;
+    
+    // Random muscle strength
+    muscle->strength = uniform(MIN_STRENGTH, MAX_STRENGTH);
+}
+
+/**********************************************************//**
+ * @brief Generate a random motion.
+ * @param creature: The creature to generate for.
+ * @param index: The motion to generate.
+ **************************************************************/
+static void GenerateMotion(CREATURE *creature, int index) {
+    MOTION *motion = &creature->behavior[index];
+        
+    // Fill action set with nulls
+    for (int i = 0; i < MAX_ACTIONS; i++) {
+        if (uniform(0.0, 1.0) < ACTION_DENSITY) {
+            // Generate a real action
+            motion->action[i] = randint(0, creature->nMuscles-1);
+        } else {
+            // Generate a no-op
+            motion->action[i] = MUSCLE_NONE;
+        }
+    }
+}
+
 /*============================================================*
  * Random creature generation
  *============================================================*/
@@ -86,75 +187,38 @@ void creature_CreateRandom(CREATURE *creature) {
         creature->fitness[i] = FITNESS_INVALID;
     }
     
-    // Generate the random nodes. Assume all nodes reside
-    // inside the unit sphere for simplicity.
+    // All parts
     for (int i = 0; i < creature->nNodes; i++) {
-        NODE *node = &creature->nodes[i];
-        
-        // Initialize this node's position
-        node->initial.x = uniform(MIN_POSITION, MAX_POSITION);
-        node->initial.y = uniform(0.0, MAX_POSITION);
-        node->initial.z = uniform(MIN_POSITION, MAX_POSITION);
-        
-        // Initial position, velocity, acceleration
-        node->position = node->initial;
-        vector_Set(&node->velocity, 0, 0, 0);
-        vector_Set(&node->acceleration, 0, 0, 0);
-
-        // Random frictionness
-        node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
+        GenerateNode(creature, i);
     }
+    for (int i = 0; i < creature->nMuscles; i++) {
+        GenerateMuscle(creature, i);
+    }
+    for (int i = 0; i < N_BEHAVIORS; i++) {
+        GenerateMotion(creature, i);
+    }
+}
+
+/*============================================================*
+ * Creature initialization
+ *============================================================*/
+void creature_Reset(CREATURE *creature) {
+    // Reset biological clock
+    creature->clock = 0.0;
+    creature->energy = 0.0;
     
-    // Generate the random muscles. This must ensure all
-    // the nodes are attached to each other so we don't get
-    // a weird degenerate creature.
+    // Deactivate all muscles
     for (int i = 0; i < creature->nMuscles; i++) {
         MUSCLE *muscle = &creature->muscles[i];
-        
-        // Ensure each node is touched by at least one muscle
-        if (i < creature->nNodes) {
-            muscle->first = i;
-        } else {
-            muscle->first = randint(0, creature->nNodes-1);
-        }
-        
-        // Random destination node, but no self-muscles
-        // as those would do nothing.
-        muscle->second = randint(0, creature->nNodes-1);
-        if (muscle->first == muscle->second) {
-            // Jump to next if a self-muscle appears
-            muscle->second = (muscle->second + 1) % creature->nNodes;
-        }
-        
-        // Get the actual muscle distance
-        const NODE *first = &creature->nodes[muscle->first];
-        const NODE *second = &creature->nodes[muscle->second];
-        VECTOR delta = second->initial;
-        vector_Subtract(&delta, &first->initial);
-        float length = vector_Length(&delta);
-        
-        // Get random contract or expand lengths
-        muscle->extended = length;
-        muscle->contracted = uniform(length/10.0, length);
         muscle->isContracted = false;
-        
-        // Random muscle strength
-        muscle->strength = uniform(MIN_STRENGTH, MAX_STRENGTH);
     }
     
-    // Generate random behaviors
-    for (int b = 0; b < N_BEHAVIORS; b++) {
-        MOTION *motion = &creature->behavior[b];
-        // Fill action set with nulls
-        for (int i = 0; i < MAX_ACTIONS; i++) {
-            if (uniform(0.0, 1.0) < ACTION_DENSITY) {
-                // Generate a real action
-                motion->action[i] = randint(0, creature->nMuscles-1);
-            } else {
-                // Generate a no-op
-                motion->action[i] = MUSCLE_NONE;
-            }
-        }
+    // Reset initial position
+    for (int i = 0; i < creature->nNodes; i++) {
+        NODE *node = &creature->nodes[i];
+        node->position = node->initial;
+        vector_Set(&node->velocity, 0.0, 0.0, 0.0);
+        vector_Set(&node->acceleration, 0.0, 0.0, 0.0);
     }
 }
 
@@ -163,18 +227,40 @@ void creature_CreateRandom(CREATURE *creature) {
  * @brief Lists all the possible mutations that can occur.
  **************************************************************/
 typedef enum {
+    NODE_ADD,
+    NODE_REMOVE,
     NODE_POSITION,
     NODE_FRICTION,
     MUSCLE_ANCHOR,
     MUSCLE_EXTENDED,
     MUSCLE_CONTRACTED,
     MUSCLE_STRENGTH,
+    MUSCLE_ADD,
+    MUSCLE_REMOVE,
     BEHAVIOR_ADD,
     BEHAVIOR_REMOVE,
 } MUTATION;
 
 /// The number of unique possible mutations.
-#define N_MUTATIONS 11
+#define N_MUTATIONS 10
+
+/**********************************************************//**
+ * @brief Fix all the muscles in the creature, if they point
+ * to nodes that no longer exist in the creature.
+ * @param creature: The creature to fix.
+ **************************************************************/
+static void FixMuscles(CREATURE *creature) {
+    for (int i = 0; i < creature->nMuscles; i++) {
+        MUSCLE *muscle = &creature->muscles[i];
+        if (muscle->first >= creature->nNodes || muscle->second >= creature->nNodes) {
+            muscle->first = muscle->first % creature->nNodes;
+            muscle->second = muscle->second % creature->nNodes;
+            if (muscle->first == muscle->second) {
+                muscle->second = (muscle->second + 1) % creature->nNodes;
+            }
+        }
+    }
+}
     
 /*============================================================*
  * Randomly mutate the creature
@@ -203,6 +289,21 @@ void creature_Mutate(CREATURE *creature) {
         node->friction = uniform(MIN_FRICTION, MAX_FRICTION);
         break;
     
+    case NODE_ADD:
+        // Add a new node
+        if (creature->nNodes < MAX_NODES) {
+            GenerateNode(creature, creature->nNodes++);
+        }
+        break;
+        
+    case NODE_REMOVE:
+        // Add a new node
+        if (creature->nNodes > MIN_NODES) {
+            creature->nNodes--;
+        }
+        FixMuscles(creature);
+        break;
+    
     case MUSCLE_ANCHOR:
         // Changes a random muscle anchor point
         muscle->second = randint(0, creature->nNodes-1);
@@ -226,6 +327,21 @@ void creature_Mutate(CREATURE *creature) {
         muscle->strength = uniform(MIN_STRENGTH, MAX_STRENGTH);
         break;
     
+    case MUSCLE_ADD:
+        // Add a muscle
+        if (creature->nMuscles < MAX_MUSCLES) {
+            GenerateMuscle(creature, creature->nMuscles++);
+        }
+        break;
+    
+    case MUSCLE_REMOVE:
+        // Remove a muscle - but not a base connection
+        // muscle!
+        if (creature->nMuscles > creature->nNodes) {
+            creature->nMuscles--;
+        }
+        break;
+    
     case BEHAVIOR_ADD:
         // Add  anew action to the stream
         behavior->action[action] = randint(0, creature->nMuscles-1);
@@ -237,6 +353,8 @@ void creature_Mutate(CREATURE *creature) {
         break;
     
     default:
+        // Should never happen
+        eprintf("Erroneous mutation: %d\n", mutation);
         break;
     }
 }
@@ -263,7 +381,7 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
         child->fitness[i] = FITNESS_INVALID;
     }
     
-    // Inherit actual node properties
+    // Inherit actual node properties.
     for (int i = 0; i < child->nNodes; i++) {
         // Inherit this node from either parent
         const CREATURE *selected;
@@ -272,13 +390,13 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
         } else {
             selected = father;
         }
-        assert(i < selected->nNodes);
         
         // Copy over the node data
         child->nodes[i] = selected->nodes[i];
     }
     
-    // Inherit muscles
+    // Inherit muscles. These guarantee the new child is fully connected
+    // by the proof of either parent's nodes.
     for (int i = 0; i < child->nMuscles; i++) {
         // Inherit the muscle from either parent
         const CREATURE *selected;
@@ -287,27 +405,16 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
         } else {
             selected = father;
         }
-        assert(i < selected->nMuscles);
         
         // Copy over the muscle data, ensuring that the
         // node indices are actually valid nodes.
         child->muscles[i] = selected->muscles[i];
         child->muscles[i].isContracted = false;
-        
-        // This is essentially a mutation: if there
-        // are fewer nodes, rebind the muscle to a
-        // valid node.
-        if (child->muscles[i].first >= child->nNodes || child->muscles[i].second >= child->nNodes) {
-            int first = randint(0, child->nNodes-1);
-            int second = randint(0, child->nNodes-1);
-            if (first == second) {
-                // Jump to next if a self-muscle appears
-                second = (second + 1) % child->nNodes;
-            }
-            child->muscles[i].first = first;
-            child->muscles[i].second = second;
-        }
     }
+    
+    // We might need to fix up the muscles if we accidentally inherited a 
+    // muscle that isn't compatible with the child's nodes.
+    FixMuscles(child);
     
     // Inherit behaviors: pick a cross-over point within
     // the action stream and copy.
@@ -323,7 +430,7 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
     }
     
     // Mutate the child at random
-    int nMutations = randint(0, MAX_ACTIONS);
+    int nMutations = randint(0, MAX_MUTATIONS);
     for (int i = 0; i < nMutations; i++) {
         creature_Mutate(child);
     }
@@ -341,12 +448,10 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
     // to animate a behavior or make changes to the creature's
     // muscle activation state.
     
-    
     // Zero out all the node accelerations and apply
     // just the gravitational force.
-    VECTOR gravity = {0.0, GRAVITY, 0.0};
     for (int i = 0; i < creature->nNodes; i++) {
-        creature->nodes[i].acceleration = gravity;
+        creature->nodes[i].acceleration = GRAVITY_VECTOR;
     }
     
     // Compute all the muscle forces and apply them
@@ -354,9 +459,11 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
     // that all nodes have uniform mass for simplicity.
     for (int i = 0; i < creature->nMuscles; i++) {
         // Get pointers to all relevant data
-        MUSCLE *muscle = &creature->muscles[i];
+        const MUSCLE *muscle = &creature->muscles[i];
         NODE *first = &creature->nodes[muscle->first];
         NODE *second = &creature->nodes[muscle->second];
+        
+        assert(first != second);
         
         // No force exterted when muscle has no strength
         if (iszero(muscle->strength)) {
@@ -386,13 +493,13 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         VECTOR force = delta;
         vector_Multiply(&force, forceMagnitude);
         
-        // Energy expenditure
-        creature->energy += dt*fabs(forceMagnitude);
-        
         // Apply the force to each of the endpoints, assuming
         // all the masses are uniform.
         vector_Add(&first->acceleration, &force);
         vector_Subtract(&second->acceleration, &force);
+        
+        // Energy expenditure from the muscular force.
+        creature->energy += dt*fabs(forceMagnitude);
     }
 
     // Apply frictional force based on the contact and
@@ -413,8 +520,7 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         if (vector_IsZero(&friction)) {
             continue;
         }
-        vector_Normalize(&friction);
-        vector_Multiply(&friction, -(FRICTION + node->friction));
+        vector_Multiply(&friction, -node->friction);
         
         // Project frictional force onto XZ plane
         // only (the ground).
@@ -424,11 +530,11 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         vector_Add(&node->acceleration, &friction);
     }
 
-    // Integrate the positions
+    // Integrate the positions.
+    // TODO time to collision with the ground.
     for (int i = 0; i < creature->nNodes; i++) {
         NODE *node = &creature->nodes[i];
-        integrate(&node->velocity, &node->acceleration, dt);
-        integrate(&node->position, &node->velocity, dt);
+        integrate(&node->position, &node->velocity, &node->acceleration, dt);
         
         // Collision check
         if (iszero(node->position.y) || node->position.y < 0.0) {
@@ -442,6 +548,7 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
  * Creature discretized update
  *============================================================*/
 void creature_Update(CREATURE *creature, float dt) {
+    // Forced maximum time step.
     int fullSteps = (int)(dt / TIME_STEP);
     float partialStep = fmod(dt, TIME_STEP);
     for (int i = 0; i < fullSteps; i++) {
@@ -522,29 +629,6 @@ static inline VECTOR AverageVelocity(const CREATURE *creature) {
     return total;
 }
 
-/*============================================================*
- * Creature initialization
- *============================================================*/
-void creature_Reset(CREATURE *creature) {
-    // Reset biological clock
-    creature->clock = 0.0;
-    creature->energy = 0.0;
-    
-    // Deactivate all muscles
-    for (int i = 0; i < creature->nMuscles; i++) {
-        MUSCLE *muscle = &creature->muscles[i];
-        muscle->isContracted = false;
-    }
-    
-    // Reset initial position
-    for (int i = 0; i < creature->nNodes; i++) {
-        NODE *node = &creature->nodes[i];
-        node->position = node->initial;
-        vector_Set(&node->velocity, 0.0, 0.0, 0.0);
-        vector_Set(&node->acceleration, 0.0, 0.0, 0.0);
-    }
-}
-
 /**********************************************************//**
  * @brief Models the creature walking forward using its
  * FORWARD MOTION. This is repeated FITNESS_TRIALS times for
@@ -588,22 +672,6 @@ static float WalkFitness(CREATURE *creature) {
     return totalFitness / FITNESS_TRIALS;
 }
 
-/**********************************************************//**
- * @brief Gets the standing fitness of the creature.
- * @param creature: The creature to inspect.
- * @return The fitness of the idle animation.
- **************************************************************/
-static float StandFitness(CREATURE *creature) {
-    creature_Animate(creature, FORWARD, BEHAVIOR_TIME*FITNESS_TRIALS);
-    int max = creature->nodes[0].position.y;
-    for (int i = 1; i < creature->nNodes; i++) {
-        if (creature->nodes[i].position.y > max) {
-            max = creature->nodes[i].position.y;
-        }
-    }
-    return max;
-}
-
 /*============================================================*
  * Overall fitness function
  *============================================================*/
@@ -623,10 +691,6 @@ float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
     switch (behavior) {
     case FORWARD:
         fitness = WalkFitness(creature);
-        break;
-        
-    case WAIT:
-        fitness = StandFitness(creature);
         break;
     
     default:
@@ -648,6 +712,21 @@ float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
  * Drawing function
  *============================================================*/
 void creature_Draw(const CREATURE *creature) {
+    // Draw the shadow of the muscles on the ground
+    glBegin(GL_LINES);
+    glColor3f(0.0, 0.0, 0.0);
+    for (int i = 0; i < creature->nMuscles; i++) {
+        // Gather spring data
+        const MUSCLE *muscle = &creature->muscles[i];
+        const NODE *first = &creature->nodes[muscle->first];
+        const NODE *second = &creature->nodes[muscle->second];
+        
+        // Plot the muscle
+        glVertex3f(first->position.x, -0.01, first->position.z);
+        glVertex3f(second->position.x, -0.01, second->position.z);
+    }
+    glEnd();
+    
     // Draw the wire-frame of the muscles
     glBegin(GL_LINES);
     for (int i = 0; i < creature->nMuscles; i++) {
