@@ -34,6 +34,7 @@
 static GENETIC Population;  /// Genetic algorithm data.
 static CREATURE *Creature;  /// Creature to animate.
 static float CameraTheta;   /// Camera turntable rotation.
+static int Seed;            /// RNG seed for this trial.
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -85,7 +86,7 @@ static void render(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(
-        sin(CameraTheta/180)*2, 0.5, cos(CameraTheta/180)*2,
+        sin(CameraTheta/180)*2, 2.0, cos(CameraTheta/180)*2,
         0, 0, 0,
         0, 1, 0
     );
@@ -99,10 +100,10 @@ static void render(void) {
         glColor3f(0.1, 0.1, 0.1);
         
         // Floor square
-        glVertex3f(-10, -0.1, -10);
-        glVertex3f(-10, -0.1, 10);
-        glVertex3f(10, -0.1, 10);
-        glVertex3f(10, -0.1, -10);
+        glVertex3f(-2, -0.1, -2);
+        glVertex3f(-2, -0.1, 2);
+        glVertex3f(10, -0.1, 2);
+        glVertex3f(10, -0.1, -2);
     glEnd();
     
     // Draw the creature
@@ -152,7 +153,8 @@ static double timer(void) {
  **************************************************************/
 static bool setup(int argc, char **argv) {
     // Random number initialization
-    srand(time(NULL));
+    Seed = time(NULL);
+    srand(Seed);
     
     // Initialize glut window
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
@@ -257,7 +259,6 @@ int main(int argc, char** argv) {
     // Initialize variables
     CameraTheta = 0.0;
     
-    
     // Set up the genetic data
     if (!genetic_Create(&Population, &REQUEST)) {
         eprintf("Failed to initialize genetic algorithm.\n");
@@ -265,14 +266,15 @@ int main(int argc, char** argv) {
     }
     
     // Genetic algorithm optimization
+    printf("Seed %d\n", Seed);
     int generation = 1;
-    while (generation < 100) {
+    while (generation < 250) {
         genetic_Generation(&Population);
-        printf("Generation %d: Fitness %f\n", generation, genetic_BestFitness(&Population));
-        //creature_Print((CREATURE *)genetic_Best(&Population));
+        Creature = (CREATURE *)genetic_Best(&Population);
+        printf("Generation %d: ", generation);
+        printf("Fitness %.2f\n", genetic_BestFitness(&Population));
         generation++;
     }
-    Creature = (CREATURE *)genetic_Best(&Population);
     /*
     
     CREATURE test;

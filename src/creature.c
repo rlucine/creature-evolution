@@ -27,16 +27,19 @@
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.
-#define ACTION_DENSITY 0.1
+#define ACTION_DENSITY 0.5
 
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.6
 #define GRAVITY -1.0
-#define DAMPING 1
+#define DAMPING 0.1
 #define MAX_MUTATIONS 1
 
 /// Number of trials to evaluate fitness.
 #define FITNESS_TRIALS 10
+
+/// Maximum energy expenditure.
+#define MAX_ENERGY 65536
 
 //**************************************************************
 /// The system integrator
@@ -499,7 +502,9 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         vector_Subtract(&second->acceleration, &force);
         
         // Energy expenditure from the muscular force.
-        creature->energy += dt*fabs(forceMagnitude);
+        if (muscle->isContracted) {
+            creature->energy += dt*fabs(forceMagnitude);
+        }
     }
 
     // Apply frictional force based on the contact and
@@ -561,6 +566,16 @@ void creature_Update(CREATURE *creature, float dt) {
  * Creature evaluation
  *============================================================*/
 void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
+    // Energy death
+    if (creature->energy > MAX_ENERGY) {
+        // Relax all the muscles
+        for (int i = 0; i < MAX_MUSCLES; i++) {
+            creature->muscles[i].isContracted = false;
+        }
+        creature_Update(creature, dt);
+        return;
+    }
+    
     // Get the total number of animation updates within
     // the given time step.
     float timeBefore = ACTION_TIME - fmod(creature->clock+ACTION_TIME, ACTION_TIME);
@@ -640,6 +655,20 @@ static inline VECTOR AverageVelocity(const CREATURE *creature) {
  * @return The fitness of the walk animation.
  **************************************************************/
 static float WalkFitness(CREATURE *creature) {
+    // Allow creature to approach rest so we don;t overestimate
+    // on accident.
+    bool pass = true;
+    while (pass) {
+        creature_Update(creature, BEHAVIOR_TIME);
+        pass = true;
+        for (int i = 0; i < creature->nNodes; i++) {
+            const VECTOR *velocity = &creature->nodes[i].velocity;
+            if (!iszero(velocity->x) || !iszero(velocity->z)) {
+                pass = false;
+            }
+        }
+    }
+    
     // Evaluate the creature's walking fitness. To do this we
     // will loop the walking animation ten times
     VECTOR start = AveragePosition(creature);
@@ -698,14 +727,35 @@ float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
         break;
     }
     
-    // Energy expenditure
-    if (!iszero(creature->energy)) {
-        fitness /= creature->energy;
-    }
-    
     // Store the fitness in the memo table
     creature->fitness[behavior] = fitness;
     return fitness;
+}
+
+/*============================================================*
+ * Node color
+ *============================================================*/
+VECTOR NodeColor(const CREATURE *creature, int index) {
+    const NODE *node = &creature->nodes[index];
+    VECTOR color = {0.0, 0.0, 0.0};
+    
+    // Red if the creature is dead.
+    if (creature->energy >= MAX_ENERGY) {
+        color.x = 1.0;
+    }
+    // Blue if the node is on the ground.
+    if (node->position.y < 0.1) {
+        color.z = 1.0;
+    }
+    
+    // White else
+    if (vector_IsZero(&color)) {
+        color.x = 1.0;
+        color.y = 1.0;
+        color.z = 1.0;
+    }
+    
+    return color;
 }
 
 /*============================================================*
@@ -736,17 +786,13 @@ void creature_Draw(const CREATURE *creature) {
         const NODE *second = &creature->nodes[muscle->second];
         
         // Plot the muscle
-        if (iszero(first->position.y)) {
-            glColor3f(0.0, 0.0, 1.0);
-        } else {
-            glColor3f(1.0, 1.0, 1.0);
-        }
+        VECTOR color;
+        color = NodeColor(creature, muscle->first);
+        glColor3f(color.x, color.y, color.z);
         glVertex3f(first->position.x, first->position.y, first->position.z);
-        if (iszero(second->position.y)) {
-            glColor3f(0.0, 0.0, 1.0);
-        } else {
-            glColor3f(1.0, 1.0, 1.0);
-        }
+        
+        color = NodeColor(creature, muscle->second);
+        glColor3f(color.x, color.y, color.z);
         glVertex3f(second->position.x, second->position.y, second->position.z);
     }
     glEnd();

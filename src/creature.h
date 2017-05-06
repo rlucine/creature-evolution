@@ -59,7 +59,7 @@ typedef struct {
 
 /// @brief The maximum number of actions occurring in
 /// one period of a cyclic MOTION.
-#define MAX_ACTIONS 8
+#define MAX_ACTIONS 16
 
 // Configurations
 #define MIN_STRENGTH 5.0    ///< The minumum strength of a MUSCLE.
