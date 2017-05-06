@@ -23,21 +23,17 @@
 #include "genetic.h"        // GENETIC
 #include "creature.h"       // CREATURE
 
-// Constants
+//**************************************************************
 #define FRUSTUM_SIZE 0.2    ///< The scale of the projection frustum.
 #define CLIP_NEAR 0.1       ///< Location of the near clipping plane.
 #define CLIP_FAR 100.0      ///< Location of the far clipping plane.
 #define WINDOW_WIDTH 800    ///< The width of the screen.
 #define WINDOW_HEIGHT 600   ///< The height of the screen.
 
-/// Genetic algorithm optimization data
-static GENETIC Population;
-
-/// Creature to animate.
-static CREATURE *Creature;
-
-/// Camera rotation
-static float CameraTheta = 0.0;
+//**************************************************************
+static GENETIC Population;  /// Genetic algorithm data.
+static CREATURE *Creature;  /// Creature to animate.
+static float CameraTheta;   /// Camera turntable rotation.
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -70,20 +66,11 @@ void keyboard(int key, int mouseX, int mouseY) {
     (void)mouseY;
     
     // Control the camera's zoom and rotation
-    switch (key) {
-    case GLUT_KEY_LEFT:
+    if (key == GLUT_KEY_LEFT) {
         CameraTheta -= 4;
-        break;
-    
-    case GLUT_KEY_RIGHT:
+    } else if (key == GLUT_KEY_RIGHT) {
         CameraTheta += 4;
-        break;
-
-    default:
-        break;
     }
-    
-    // Redisplay the screen
     glutPostRedisplay();
 }
 
@@ -98,7 +85,7 @@ static void render(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(
-        sin(CameraTheta/180)*2, 2.0, cos(CameraTheta/180)*2,
+        sin(CameraTheta/180)*2, 0.5, cos(CameraTheta/180)*2,
         0, 0, 0,
         0, 1, 0
     );
@@ -144,8 +131,8 @@ static void update(void) {
     double dt = current - previous;
     previous = current;
     
-    // Update the best creature
-    creature_Animate(Creature, FORWARD, dt);
+    // Update the creature's animation
+    creature_Update(Creature, dt);
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -158,33 +145,6 @@ static void update(void) {
 static double timer(void) {
     return glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 }
-
-static void random(void *entity) {
-    CREATURE *creature = (CREATURE *)entity;
-    creature_CreateRandom(creature);
-}
-
-static void breed(const void *mother, const void *father, void *son, void *daughter) {
-    const CREATURE *cMother = (const CREATURE *)mother;
-    const CREATURE *cFather = (const CREATURE *)father;
-    CREATURE *cSon = (CREATURE *)son;
-    CREATURE *cDaughter = (CREATURE *)daughter;
-    creature_Breed(cMother, cFather, cSon);
-    creature_Breed(cMother, cFather, cDaughter);
-}
-
-static float fitness(void *entity) {
-    CREATURE *creature = (CREATURE *)entity;
-    return -creature_Fitness(creature, FORWARD);
-}
-
-static const GENETIC_REQUEST REQUEST = {
-    .entitySize = sizeof(CREATURE),
-    .populationSize = 100,
-    .random = &random,
-    .breed = &breed,
-    .fitness = &fitness,
-};
 
 /**********************************************************//**
  * @brief Initialization function.
@@ -232,16 +192,54 @@ static bool setup(int argc, char **argv) {
     float aspect = (float)WINDOW_WIDTH / WINDOW_HEIGHT;
     glFrustum(-FRUSTUM_SIZE*aspect, FRUSTUM_SIZE*aspect, -FRUSTUM_SIZE, FRUSTUM_SIZE, CLIP_NEAR, CLIP_FAR);
     
-    // Set up the genetic data
-    if (!genetic_Create(&Population, &REQUEST)) {
-        eprintf("Failed to initialize genetic algorithm.\n");
-        return false;
-    }
-    
     // Frame rate library setup
     RegisterTimer(&timer);
     return true;
 }
+
+/**********************************************************//**
+ * @brief Random creature generation adapter function.
+ * @param entity: The CREATURE to generate.
+ **************************************************************/
+static void random(void *entity) {
+    CREATURE *creature = (CREATURE *)entity;
+    creature_CreateRandom(creature);
+}
+
+/**********************************************************//**
+ * @brief Creature breeding adapter function.
+ * @param mother: The first parent.
+ * @param father: The second parent.
+ * @param son: The first childn.
+ * @param daughter: The second child.
+ **************************************************************/
+static void breed(const void *mother, const void *father, void *son, void *daughter) {
+    const CREATURE *cMother = (const CREATURE *)mother;
+    const CREATURE *cFather = (const CREATURE *)father;
+    CREATURE *cSon = (CREATURE *)son;
+    CREATURE *cDaughter = (CREATURE *)daughter;
+    creature_Breed(cMother, cFather, cSon);
+    creature_Breed(cMother, cFather, cDaughter);
+}
+
+/**********************************************************//**
+ * @brief Creature fitness adapter function.
+ * @param entity: The CREATURE to test.
+ * @return Smaller values for greater fitness.
+ **************************************************************/
+static float fitness(void *entity) {
+    CREATURE *creature = (CREATURE *)entity;
+    return -creature_Fitness(creature, FORWARD);
+}
+
+/// The GENETIC algorithm configuration data.
+static const GENETIC_REQUEST REQUEST = {
+    .entitySize = sizeof(CREATURE),
+    .populationSize = 100,
+    .random = &random,
+    .breed = &breed,
+    .fitness = &fitness,
+};
 
 /**********************************************************//**
  * @brief Game loop and driver function.
@@ -256,14 +254,30 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     
+    // Initialize variables
+    CameraTheta = 0.0;
+    
+    
+    // Set up the genetic data
+    if (!genetic_Create(&Population, &REQUEST)) {
+        eprintf("Failed to initialize genetic algorithm.\n");
+        return false;
+    }
+    
     // Genetic algorithm optimization
     int generation = 1;
     while (generation < 100) {
         genetic_Generation(&Population);
         printf("Generation %d: Fitness %f\n", generation, genetic_BestFitness(&Population));
+        //creature_Print((CREATURE *)genetic_Best(&Population));
         generation++;
     }
     Creature = (CREATURE *)genetic_Best(&Population);
+    /*
+    
+    CREATURE test;
+    creature_CreateRandom(&test);
+    Creature = &test;*/
     
     // Main loop and termination
     glutMainLoop();
