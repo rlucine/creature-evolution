@@ -29,9 +29,10 @@ typedef struct {
     float friction;         ///< Coefficient of friction.
 } NODE;
 
+//**************************************************************
 // Node amounts
 #define MIN_NODES 4         ///< Minimum number of NODEs needed per creature.
-#define MAX_NODES 8         ///< Maximum number of NODEs per creature.
+#define MAX_NODES 16        ///< Maximum number of NODEs per creature.
 
 // Node properties
 #define MIN_POSITION -1.0   ///< Minimum initial XZ position of a NODE.
@@ -52,16 +53,17 @@ typedef struct {
     bool isContracted;      ///< Whether the muscle is contracting.
 } MUSCLE;
 
+//**************************************************************
 /// Maximum number of MUSCLEs per creature.
-#define MAX_MUSCLES 32
+#define MAX_MUSCLES 64
 
 /// @brief The maximum number of actions occurring in
 /// one period of a cyclic MOTION.
 #define MAX_ACTIONS 8
 
 // Configurations
-#define MIN_STRENGTH 50.0   ///< The minumum strength of a MUSCLE.
-#define MAX_STRENGTH 200.0   ///< Maximum strength of a MUSCLE.
+#define MIN_STRENGTH 5.0    ///< The minumum strength of a MUSCLE.
+#define MAX_STRENGTH 20.0   ///< Maximum strength of a MUSCLE.
 
 /// The minimum length of a contracted MUSCLE.
 #define MIN_CONTRACTED_LENGTH 0.25
@@ -81,11 +83,12 @@ typedef struct {
  **************************************************************/
 typedef struct {
     /// List of muscle indices to contract or expand.
-    int action[MAX_ACTIONS];
+    unsigned char action[MAX_ACTIONS];
 } MOTION;
 
+//**************************************************************
 /// Signals that no muscle should contract.
-#define MUSCLE_NONE -1
+#define MUSCLE_NONE 255
 
 /**********************************************************//**
  * @enum BEHAVIOR
@@ -97,11 +100,11 @@ typedef enum {
     ROTATE_LEFT,            ///< Creature rotates left in place.
     ROTATE_RIGHT,           ///< Creature rotates right in place.
     JUMP,                   ///< Creature springs off the ground.
-    WAIT,                   ///< Creature remains in a nautral position.
 } BEHAVIOR;
 
+//**************************************************************
 /// The total number of distinct BEHAVIOR keys.
-#define N_BEHAVIORS 5
+#define N_BEHAVIORS 4
 
 /// The actual time spent to perform a BEHAVIOR in seconds.
 #define BEHAVIOR_TIME 1.0
@@ -133,6 +136,7 @@ typedef struct {
     float fitness[N_BEHAVIORS];
 } CREATURE;
 
+//**************************************************************
 /// Invalid fitness amount.
 #define FITNESS_INVALID -1.0
 

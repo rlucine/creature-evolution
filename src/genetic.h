@@ -16,6 +16,7 @@
 // This project
 #include "heap.h"           // HEAP
 
+//**************************************************************
 /// @brief Value used for specifying that a genetic algorithm
 /// can proceed for infinite generations.
 #define TIMEOUT_NONE 0
