@@ -24,7 +24,7 @@
 #include "creature.h"       // CREATURE
 
 //**************************************************************
-#define FRUSTUM_SIZE 0.2    ///< The scale of the projection frustum.
+#define FRUSTUM_SIZE 0.1    ///< The scale of the projection frustum.
 #define CLIP_NEAR 0.1       ///< Location of the near clipping plane.
 #define CLIP_FAR 100.0      ///< Location of the far clipping plane.
 #define WINDOW_WIDTH 800    ///< The width of the screen.
@@ -35,6 +35,7 @@ static GENETIC Population;  /// Genetic algorithm data.
 static CREATURE *Creature;  /// Creature to animate.
 static float CameraTheta;   /// Camera turntable rotation.
 static int Seed;            /// RNG seed for this trial.
+static CREATURE Test;       /// Test creature.
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -133,7 +134,7 @@ static void update(void) {
     previous = current;
     
     // Update the creature's animation
-    creature_Update(Creature, dt);
+    creature_Animate(Creature, FORWARD, dt);
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -259,27 +260,46 @@ int main(int argc, char** argv) {
     // Initialize variables
     CameraTheta = 0.0;
     
-    // Set up the genetic data
-    if (!genetic_Create(&Population, &REQUEST)) {
-        eprintf("Failed to initialize genetic algorithm.\n");
-        return false;
+    // Mode
+    if (argc == 1) {
+        // Set up the genetic data
+        if (!genetic_Create(&Population, &REQUEST)) {
+            eprintf("Failed to initialize genetic algorithm.\n");
+            return false;
+        }
+        
+        // Genetic algorithm optimization
+        printf("Seed %d\n", Seed);
+        int generation = 1;
+        while (generation < 250) {
+            genetic_Generation(&Population);
+            Creature = (CREATURE *)genetic_Best(&Population);
+            printf("Generation %d: ", generation);
+            printf("Fitness %.2f\n", genetic_BestFitness(&Population));
+            generation++;
+        }
+        
+        // Save best creature
+        char filename[256];
+        sprintf(filename, "%d_%d.creature", Seed, generation);
+        FILE *file = fopen(filename, "wb");
+        if (file) {
+            printf("Writing best creature to \"%s\"\n", filename);
+            fwrite(Creature, sizeof(CREATURE), 1, file);
+            fclose(file);
+        }
+        
+    } else if (argc == 2) {
+        // Load the file
+        FILE *file = fopen(argv[1], "rb");
+        if (!file) {
+            printf("Failed to open \"%s\"\n", argv[1]);
+            exit(-1);
+        }
+        fread(&Test, sizeof(CREATURE), 1, file);
+        fclose(file);
+        Creature = &Test;
     }
-    
-    // Genetic algorithm optimization
-    printf("Seed %d\n", Seed);
-    int generation = 1;
-    while (generation < 250) {
-        genetic_Generation(&Population);
-        Creature = (CREATURE *)genetic_Best(&Population);
-        printf("Generation %d: ", generation);
-        printf("Fitness %.2f\n", genetic_BestFitness(&Population));
-        generation++;
-    }
-    /*
-    
-    CREATURE test;
-    creature_CreateRandom(&test);
-    Creature = &test;*/
     
     // Main loop and termination
     glutMainLoop();
