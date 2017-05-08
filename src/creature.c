@@ -156,26 +156,6 @@ static void GenerateMuscle(CREATURE *creature, int index) {
     muscle->strength = uniform(MIN_STRENGTH, MAX_STRENGTH);
 }
 
-/**********************************************************//**
- * @brief Generate a random motion.
- * @param creature: The creature to generate for.
- * @param index: The motion to generate.
- **************************************************************/
-static void GenerateMotion(CREATURE *creature, int index) {
-    MOTION *motion = &creature->behavior[index];
-        
-    // Fill action set with nulls
-    for (int i = 0; i < MAX_ACTIONS; i++) {
-        if (uniform(0.0, 1.0) < ACTION_DENSITY) {
-            // Generate a real action
-            motion->action[i] = randint(0, creature->nMuscles-1);
-        } else {
-            // Generate a no-op
-            motion->action[i] = MUSCLE_NONE;
-        }
-    }
-}
-
 /*============================================================*
  * Random creature generation
  *============================================================*/
@@ -186,20 +166,26 @@ void creature_CreateRandom(CREATURE *creature) {
     creature->clock = 0.0;
     creature->energy = 0.0;
     
-    // Generate initial fitness table.
-    for (int i = 0; i < N_BEHAVIORS; i++) {
-        creature->fitness[i] = FITNESS_INVALID;
-    }
+    // Generate initial fitness memo.
+    creature->fitness = FITNESS_INVALID;
     
-    // All parts
+    // Generate the creature parts
     for (int i = 0; i < creature->nNodes; i++) {
         GenerateNode(creature, i);
     }
     for (int i = 0; i < creature->nMuscles; i++) {
         GenerateMuscle(creature, i);
     }
-    for (int i = 0; i < N_BEHAVIORS; i++) {
-        GenerateMotion(creature, i);
+    
+    // Make the creature's motion
+    for (int i = 0; i < MAX_ACTIONS; i++) {
+        if (uniform(0.0, 1.0) < ACTION_DENSITY) {
+            // Generate a real action
+            creature->behavior.action[i] = randint(0, creature->nMuscles-1);
+        } else {
+            // Generate a no-op
+            creature->behavior.action[i] = MUSCLE_NONE;
+        }
     }
 }
 
@@ -276,7 +262,6 @@ void creature_Mutate(CREATURE *creature) {
     // Pre-generate all the random numbers
     NODE *node = &creature->nodes[randint(0, creature->nNodes-1)];
     MUSCLE *muscle = &creature->muscles[randint(0, creature->nMuscles-1)];
-    MOTION *behavior = &creature->behavior[randint(0, N_BEHAVIORS-1)];
     int action = randint(0, MAX_ACTIONS-1);
     
     // Apply the mutations
@@ -348,12 +333,12 @@ void creature_Mutate(CREATURE *creature) {
     
     case BEHAVIOR_ADD:
         // Add  anew action to the stream
-        behavior->action[action] = randint(0, creature->nMuscles-1);
+        creature->behavior.action[action] = randint(0, creature->nMuscles-1);
         break;
     
     case BEHAVIOR_REMOVE:
         // Delete an action from the stream
-        behavior->action[action] = MUSCLE_NONE;
+        creature->behavior.action[action] = MUSCLE_NONE;
         break;
     
     default:
@@ -381,9 +366,7 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
     child->clock = 0.0;
     
     // Generate initial fitness table.
-    for (int i = 0; i < N_BEHAVIORS; i++) {
-        child->fitness[i] = FITNESS_INVALID;
-    }
+    child->fitness = FITNESS_INVALID;
     
     // Inherit actual node properties.
     for (int i = 0; i < child->nNodes; i++) {
@@ -422,15 +405,12 @@ void creature_Breed(const CREATURE *mother, const CREATURE *father, CREATURE *ch
     
     // Inherit behaviors: pick a cross-over point within
     // the action stream and copy.
-    for (int i = 0; i < N_BEHAVIORS; i++) {
-        // Unroll the if-condition for efficiency
-        int crossover = randint(0, MAX_ACTIONS-1);
-        for (int j = 0; j < crossover; j++) {
-            child->behavior[i].action[j] = mother->behavior[i].action[j];
-        }
-        for (int j = crossover; j < MAX_ACTIONS; j++) {
-            child->behavior[i].action[j] = father->behavior[i].action[j];
-        }
+    int crossover = randint(0, MAX_ACTIONS-1);
+    for (int j = 0; j < crossover; j++) {
+        child->behavior.action[j] = mother->behavior.action[j];
+    }
+    for (int j = crossover; j < MAX_ACTIONS; j++) {
+        child->behavior.action[j] = father->behavior.action[j];
     }
     
     // Mutate the child at random
@@ -566,7 +546,7 @@ void creature_Update(CREATURE *creature, float dt) {
 /*============================================================*
  * Creature evaluation
  *============================================================*/
-void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
+void creature_Animate(CREATURE *creature, float dt) {
     // Energy death
     if (creature->energy > MAX_ENERGY) {
         // Relax all the muscles
@@ -602,7 +582,7 @@ void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt) {
     while (fullActions >= 0) {
         // Animate the next step by flipping the contract flag of the
         // muscle specified in the action stream.
-        int action = creature->behavior[behavior].action[animationIndex];
+        int action = creature->behavior.action[animationIndex];
         if (action != MUSCLE_NONE) {
             creature->muscles[action].isContracted = !creature->muscles[action].isContracted;
         }
@@ -653,7 +633,7 @@ static inline VECTOR AverageVelocity(const CREATURE *creature) {
 
 /**********************************************************//**
  * @brief Models the creature walking forward using its
- * FORWARD MOTION. This is repeated FITNESS_TRIALS times for
+ * MOTION. This is repeated FITNESS_TRIALS times for
  * an averaging effect. The fitness is based on the total
  * distance travelled in the X-direction (positive), and is
  * negatively impacted by significant motion in the Y and Z
@@ -692,7 +672,7 @@ static float WalkFitness(CREATURE *creature) {
     // resetting the creature.
     for (int trial = 0; trial < FITNESS_TRIALS; trial++) {
         // Perform a whole cycle of the animation
-        creature_Animate(creature, FORWARD, BEHAVIOR_TIME);
+        creature_Animate(creature, BEHAVIOR_TIME);
         
         // Sample the difference again
         end = AveragePosition(creature);
@@ -711,38 +691,29 @@ static float WalkFitness(CREATURE *creature) {
 /*============================================================*
  * Overall fitness function
  *============================================================*/
-float creature_Fitness(CREATURE *creature, BEHAVIOR behavior) {
+float creature_Fitness(CREATURE *creature) {
     // Reset the creature for evaluation purposes, so the
     // creature always begins at rest and there are no weird
     // initial spasms.
     creature_Reset(creature);
     
     // Check memoized fitness table
-    float fitness = creature->fitness[behavior];
+    float fitness = creature->fitness;
     if (fitness != FITNESS_INVALID) {
         return fitness;
     }
     
     // We actually need to evaluate the fitness
-    switch (behavior) {
-    case FORWARD:
-        fitness = WalkFitness(creature);
-        break;
-    
-    default:
-        fitness = FITNESS_INVALID;
-        break;
-    }
-    
     // Store the fitness in the memo table
-    creature->fitness[behavior] = fitness;
+    fitness = WalkFitness(creature);
+    creature->fitness = fitness;
     return fitness;
 }
 
 /*============================================================*
  * Node color
  *============================================================*/
-VECTOR NodeColor(const CREATURE *creature, int index) {
+static VECTOR NodeColor(const CREATURE *creature, int index) {
     const NODE *node = &creature->nodes[index];
     VECTOR color = {0.0, 0.0, 0.0};
     

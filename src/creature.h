@@ -90,22 +90,6 @@ typedef struct {
 /// Signals that no muscle should contract.
 #define MUSCLE_NONE 255
 
-/**********************************************************//**
- * @enum BEHAVIOR
- * @brief Defines keys for all the independent behaviors a 
- * creature should exhibit.
- **************************************************************/
-typedef enum {
-    FORWARD,                ///< Creature accelerates forward.
-    ROTATE_LEFT,            ///< Creature rotates left in place.
-    ROTATE_RIGHT,           ///< Creature rotates right in place.
-    JUMP,                   ///< Creature springs off the ground.
-} BEHAVIOR;
-
-//**************************************************************
-/// The total number of distinct BEHAVIOR keys.
-#define N_BEHAVIORS 4
-
 /// The actual time spent to perform a BEHAVIOR in seconds.
 #define BEHAVIOR_TIME 1.0
 
@@ -122,18 +106,10 @@ typedef struct {
     int nMuscles;           ///< Number of distinct muscles.
     float clock;            ///< The creature's biological clock.
     float energy;           ///< Energy spent by the creature.
-    
-    /// NODE data for one creature.
-    NODE nodes[MAX_NODES];
-    
-    /// MUSCLE data for one creature.
-    MUSCLE muscles[MAX_MUSCLES];
-    
-    /// BEHAVIOR data for each distinct hehavior.
-    MOTION behavior[N_BEHAVIORS];
-    
-    /// Buffered fitness data for each behavior.
-    float fitness[N_BEHAVIORS];
+    NODE nodes[MAX_NODES];  /// NODE data for one creature.
+    MUSCLE muscles[MAX_MUSCLES];    /// MUSCLE data for one creature.
+    MOTION behavior;        /// MOTION data for each distinct hehavior.
+    float fitness;          /// Buffered fitness data.
 } CREATURE;
 
 //**************************************************************
@@ -182,19 +158,17 @@ extern void creature_Update(CREATURE *creature, float dt);
 /**********************************************************//**
  * @brief Plays back the animation for the given behavior.
  * @param creature: The creature to animate.
- * @param behavior: The BEHAVIOR to animate.
  * @param dt: The time step in seconds.
  **************************************************************/
-extern void creature_Animate(CREATURE *creature, BEHAVIOR behavior, float dt);
+extern void creature_Animate(CREATURE *creature, float dt);
 
 /**********************************************************//**
  * @brief Gets the fitness of the given behavior. This uses
  * a memo table in each creature to avoid recomputation.
  * @param creature: The creature to inspect.
- * @param behavior: The BEHAVIOR to animate.
  * @return The fitness of that behavior.
  **************************************************************/
-extern float creature_Fitness(CREATURE *creature, BEHAVIOR behavior);
+extern float creature_Fitness(CREATURE *creature);
 
 /**********************************************************//**
  * @brief Draw the creature on the screen.

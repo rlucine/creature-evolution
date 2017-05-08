@@ -134,7 +134,7 @@ static void update(void) {
     previous = current;
     
     // Update the creature's animation
-    creature_Animate(Creature, FORWARD, dt);
+    creature_Animate(Creature, dt);
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -232,7 +232,7 @@ static void breed(const void *mother, const void *father, void *son, void *daugh
  **************************************************************/
 static float fitness(void *entity) {
     CREATURE *creature = (CREATURE *)entity;
-    return -creature_Fitness(creature, FORWARD);
+    return -creature_Fitness(creature);
 }
 
 /// The GENETIC algorithm configuration data.
@@ -300,6 +300,9 @@ int main(int argc, char** argv) {
         fclose(file);
         Creature = &Test;
     }
+    
+    // Reset the creature's animation
+    creature_Reset(Creature);
     
     // Main loop and termination
     glutMainLoop();
