@@ -23,7 +23,7 @@
 
 //**************************************************************
 /// Forced time step used in discretized updates.
-#define TIME_STEP 0.01
+#define TIME_STEP 0.005
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.

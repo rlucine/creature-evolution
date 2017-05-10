@@ -36,6 +36,7 @@ static CREATURE *Creature;  /// Creature to animate.
 static float CameraTheta;   /// Camera turntable rotation.
 static int Seed;            /// RNG seed for this trial.
 static CREATURE Test;       /// Test creature.
+static float CameraX;       /// Camera X position.
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -83,28 +84,56 @@ static void render(void) {
     // Set up this frame
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+    // Camera position
+    float totalX = 0.0;
+    for (int i = 0; i < Creature->nNodes; i++) {
+        totalX += Creature->nodes[i].position.x;
+    }
+    float averageX = totalX / Creature->nNodes;
+    CameraX = (CameraX + averageX) / 2.0;
+    
     // Set the camera position
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(
-        sin(CameraTheta/180*M_PI)*2, 2.0, cos(CameraTheta/180*M_PI)*2,
-        0, 0, 0,
+        CameraX + sin(CameraTheta/180*M_PI)*4, 1.5, cos(CameraTheta/180*M_PI)*4,
+        CameraX, 0, 0,
         0, 1, 0
     );
     glMatrixMode(0);
     
     // Draw some information.
     OutputText(0, "%0.1lf FPS", FrameRate());
+    OutputText(1, "%0.1f seconds", Creature->clock);
+    OutputText(2, "%0.1f meters", CameraX);
     
     // Draw the floor
-    glBegin(GL_TRIANGLE_FAN);
-        glColor3f(0.1, 0.1, 0.1);
-        
+    glBegin(GL_LINES);
         // Floor square
-        glVertex3f(-2, -0.1, -2);
-        glVertex3f(-2, -0.1, 2);
-        glVertex3f(10, -0.1, 2);
-        glVertex3f(10, -0.1, -2);
+        for (int i = 0; i < 100; i++) {
+            if ((i % 10)) {
+                glColor3f(0.2, 0.2, 0.2);
+                
+                // Basic line
+                glVertex3f(i, -0.1, -4.0);
+                glVertex3f(i, -0.1, 4.0);
+                
+            } else {
+                glColor3f(0.2, 0.4, 0.2);
+                
+                // Box bottom
+                glVertex3f(i, -0.1, -8.0);
+                glVertex3f(i, -0.1, 8.0);
+                
+                // Box sides
+                glVertex3f(i, -0.1, -8.0);
+                glVertex3f(i, 2.0, -8.0);
+                
+                glVertex3f(i, -0.1, 8.0);
+                glVertex3f(i, 2.0, 8.0);
+            }
+            
+        }
     glEnd();
     
     // Draw the creature
@@ -177,7 +206,7 @@ static bool setup(int argc, char **argv) {
     }
     
     // Clear to white
-    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glClearColor(0.1, 0.1, 0.1, 1.0);
     glColor3f(1.0, 1.0, 1.0);
 
     // No backface rendering
@@ -238,7 +267,7 @@ static float fitness(void *entity) {
 /// The GENETIC algorithm configuration data.
 static const GENETIC_REQUEST REQUEST = {
     .entitySize = sizeof(CREATURE),
-    .populationSize = 100,
+    .populationSize = 1000,
     .random = &random,
     .breed = &breed,
     .fitness = &fitness,
@@ -259,6 +288,7 @@ int main(int argc, char** argv) {
     
     // Initialize variables
     CameraTheta = 270.0;
+    CameraX = 0.0;
     
     // Mode
     if (argc == 1) {
@@ -271,7 +301,7 @@ int main(int argc, char** argv) {
         // Genetic algorithm optimization
         printf("Seed %d\n", Seed);
         int generation = 1;
-        while (generation < 1000) {
+        while (generation < 250) {
             genetic_Generation(&Population);
             Creature = (CREATURE *)genetic_Best(&Population);
             printf("Generation %d: ", generation);
