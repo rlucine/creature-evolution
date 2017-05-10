@@ -603,6 +603,20 @@ void creature_Animate(CREATURE *creature, float dt) {
     }
 }
 
+/*============================================================*
+ * Rest animation
+ *============================================================*/
+bool creature_Rest(CREATURE *creature, float dt) {
+    creature_Update(creature, dt);
+    for (int i = 0; i < creature->nNodes; i++) {
+        const VECTOR *velocity = &creature->nodes[i].velocity;
+        if (!iszero(velocity->x) || !iszero(velocity->z)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**********************************************************//**
  * @brief Computes the average NODE position.
  * @param creature: The creature to inspect.
@@ -644,17 +658,7 @@ static inline VECTOR AverageVelocity(const CREATURE *creature) {
 static float WalkFitness(CREATURE *creature) {
     // Allow creature to approach rest so we don;t overestimate
     // on accident.
-    bool pass = true;
-    while (pass) {
-        creature_Update(creature, BEHAVIOR_TIME);
-        pass = true;
-        for (int i = 0; i < creature->nNodes; i++) {
-            const VECTOR *velocity = &creature->nodes[i].velocity;
-            if (!iszero(velocity->x) || !iszero(velocity->z)) {
-                pass = false;
-            }
-        }
-    }
+    while (creature_Rest(creature, BEHAVIOR_TIME));
     
     // Evaluate the creature's walking fitness. To do this we
     // will loop the walking animation ten times

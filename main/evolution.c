@@ -37,6 +37,7 @@ static float CameraTheta;   /// Camera turntable rotation.
 static int Seed;            /// RNG seed for this trial.
 static CREATURE Test;       /// Test creature.
 static float CameraX;       /// Camera X position.
+static bool Rest;           /// Whether the creature is at rest.
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -163,7 +164,11 @@ static void update(void) {
     previous = current;
     
     // Update the creature's animation
-    creature_Animate(Creature, dt);
+    if (Rest) {
+        Rest = creature_Rest(Creature, dt);
+    } else {
+        creature_Animate(Creature, dt);
+    }
     
     // Force redisplay of the screen
     glutPostRedisplay();
@@ -289,6 +294,7 @@ int main(int argc, char** argv) {
     // Initialize variables
     CameraTheta = 270.0;
     CameraX = 0.0;
+    Rest = true;
     
     // Mode
     if (argc == 1) {

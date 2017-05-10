@@ -163,6 +163,15 @@ extern void creature_Update(CREATURE *creature, float dt);
 extern void creature_Animate(CREATURE *creature, float dt);
 
 /**********************************************************//**
+ * @brief Animates the creature without moving muscles until
+ * it is at rest.
+ * @param creature: The creature to animate.
+ * @param dt: The time step in seconds.
+ * @return Whether the creature is at rest.
+ **************************************************************/
+extern bool creature_Rest(CREATURE *creature, float dt);
+
+/**********************************************************//**
  * @brief Gets the fitness of the given behavior. This uses
  * a memo table in each creature to avoid recomputation.
  * @param creature: The creature to inspect.
