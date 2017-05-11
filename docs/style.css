@@ -1,0 +1,47 @@
+/* Background color of non-body elements */
+html {
+	background: DarkSeaGreen;
+}
+
+/* Highlight the body section */
+body {
+	max-width: 1000px;
+	margin: auto;
+	background: White;
+}
+
+/* h1 is grey. not black */
+h1 {
+	color: #404040;
+}
+
+/* h2 is grey. not black */
+h2 {
+	color: #404040;
+}
+
+/* Horizontal rule is very faint */
+hr {
+	border-color: #d0d0d0;
+}
+
+/* Paragraph indent */
+p {
+	padding-left: 8px;
+	padding-right: 8px;
+}
+
+/* Line break extra padding */
+br {
+	margin-bottom: 16px;
+}
+
+/* Image padding */
+img {
+	padding-left: 16px;
+}
+
+/* Embedded videos */
+iframe {
+	padding: 16px;
+}
