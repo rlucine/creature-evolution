@@ -23,7 +23,7 @@
 
 //**************************************************************
 /// Forced time step used in discretized updates.
-#define TIME_STEP 0.005
+#define TIME_STEP 0.001
 
 /// @brief Probability that a random action stream will contain
 /// an actual action as opposed to a wait / stop action.
@@ -31,9 +31,17 @@
 
 /// Bounciness as a node hits the ground.
 #define RESTITUTION 0.6
+
+/// Gravitational acceleration in the Y direction.
 #define GRAVITY -1.0
+
+/// Damping force between springs in the creatures.
 #define DAMPING 1.5
+
+/// Maximum number of mutations per creature.
 #define MAX_MUTATIONS 4
+
+/// Frictional force of the ground.
 #define FRICTION 20.0
 
 /// Number of trials to evaluate fitness.
@@ -213,22 +221,22 @@ void creature_Reset(CREATURE *creature) {
 }
 
 /**********************************************************//**
- * @struct MUTATION
+ * @enum MUTATION
  * @brief Lists all the possible mutations that can occur.
  **************************************************************/
 typedef enum {
-    NODE_ADD,
-    NODE_REMOVE,
-    NODE_POSITION,
-    NODE_FRICTION,
-    MUSCLE_ANCHOR,
-    MUSCLE_EXTENDED,
-    MUSCLE_CONTRACTED,
-    MUSCLE_STRENGTH,
-    MUSCLE_ADD,
-    MUSCLE_REMOVE,
-    BEHAVIOR_ADD,
-    BEHAVIOR_REMOVE,
+    NODE_ADD,               ///< Add an extra node.
+    NODE_REMOVE,            ///< Delete one of the nodes.
+    NODE_POSITION,          ///< Change the start position of a node.
+    NODE_FRICTION,          ///< Change the friction corfficient of the node.
+    MUSCLE_ANCHOR,          ///< Change where a muscle is attached.
+    MUSCLE_EXTENDED,        ///< Change the muscle extended length.
+    MUSCLE_CONTRACTED,      ///< Change the muscle contract length.
+    MUSCLE_STRENGTH,        ///< Change the muscle power.
+    MUSCLE_ADD,             ///< Add a new muscle.
+    MUSCLE_REMOVE,          ///< Remove one muscle.
+    BEHAVIOR_ADD,           ///< Add an action to the motion.
+    BEHAVIOR_REMOVE,        ///< Remove an action from the motion.
 } MUTATION;
 
 /// The number of unique possible mutations.
@@ -239,7 +247,7 @@ typedef enum {
  * to nodes that no longer exist in the creature.
  * @param creature: The creature to fix.
  **************************************************************/
-static void FixMuscles(CREATURE *creature) {
+static inline void FixMuscles(CREATURE *creature) {
     for (int i = 0; i < creature->nMuscles; i++) {
         MUSCLE *muscle = &creature->muscles[i];
         if (muscle->first >= creature->nNodes || muscle->second >= creature->nNodes) {
@@ -714,10 +722,13 @@ float creature_Fitness(CREATURE *creature) {
     return fitness;
 }
 
-/*============================================================*
- * Node color
- *============================================================*/
-static VECTOR NodeColor(const CREATURE *creature, int index) {
+/**********************************************************//**
+ * @brief Computes the NODE color.
+ * @param creature: The creature to color.
+ * @param index: The node's index.
+ * @return The RGB color for the node in a VECTOR.
+ **************************************************************/
+static inline VECTOR NodeColor(const CREATURE *creature, int index) {
     const NODE *node = &creature->nodes[index];
     VECTOR color = {0.0, 0.0, 0.0};
     

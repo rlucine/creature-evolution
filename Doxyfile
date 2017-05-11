@@ -14,7 +14,7 @@ HTML_OUTPUT = "docs"
 
 # Input files
 EXAMPLE_PATH = .
-INPUT = include/ src/ doxygen/ test/
+INPUT = src/ doxygen/ main/
 FILE_PATTERNS = *.dox *.h *.c *.inc
 RECURSIVE = YES
 

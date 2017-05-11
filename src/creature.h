@@ -106,10 +106,10 @@ typedef struct {
     int nMuscles;           ///< Number of distinct muscles.
     float clock;            ///< The creature's biological clock.
     float energy;           ///< Energy spent by the creature.
-    NODE nodes[MAX_NODES];  /// NODE data for one creature.
-    MUSCLE muscles[MAX_MUSCLES];    /// MUSCLE data for one creature.
-    MOTION behavior;        /// MOTION data for each distinct hehavior.
-    float fitness;          /// Buffered fitness data.
+    NODE nodes[MAX_NODES];  ///< NODE data for one creature.
+    MUSCLE muscles[MAX_MUSCLES];    ///< MUSCLE data for one creature.
+    MOTION behavior;        ///< MOTION data for each distinct hehavior.
+    float fitness;          ///< Buffered fitness data.
 } CREATURE;
 
 //**************************************************************

@@ -31,13 +31,13 @@
 #define WINDOW_HEIGHT 600   ///< The height of the screen.
 
 //**************************************************************
-static GENETIC Population;  /// Genetic algorithm data.
-static CREATURE *Creature;  /// Creature to animate.
-static float CameraTheta;   /// Camera turntable rotation.
-static int Seed;            /// RNG seed for this trial.
-static CREATURE Test;       /// Test creature.
-static float CameraX;       /// Camera X position.
-static bool Rest;           /// Whether the creature is at rest.
+static GENETIC Population;  ///< Genetic algorithm data.
+static CREATURE *Creature;  ///< Creature to animate.
+static float CameraTheta;   ///< Camera turntable rotation.
+static int Seed;            ///< RNG seed for this trial.
+static CREATURE Test;       ///< Test creature.
+static float CameraX;       ///< Camera X position.
+static bool Rest;           ///< Whether the creature is at rest.
 
 /**********************************************************//**
  * @brief Draws raster text on the screen.
@@ -65,7 +65,7 @@ static bool Rest;           /// Whether the creature is at rest.
  * @param mouseY: Mouse Y position when the key was pressed.
  * This is ignored.
  **************************************************************/
-void keyboard(int key, int mouseX, int mouseY) {
+static void keyboard(int key, int mouseX, int mouseY) {
     (void)mouseX;
     (void)mouseY;
     
@@ -110,31 +110,30 @@ static void render(void) {
     
     // Draw the floor
     glBegin(GL_LINES);
-        // Floor square
-        for (int i = 0; i < 100; i++) {
-            if ((i % 10)) {
-                glColor3f(0.2, 0.2, 0.2);
-                
-                // Basic line
-                glVertex3f(i, -0.1, -4.0);
-                glVertex3f(i, -0.1, 4.0);
-                
-            } else {
-                glColor3f(0.2, 0.4, 0.2);
-                
-                // Box bottom
-                glVertex3f(i, -0.1, -8.0);
-                glVertex3f(i, -0.1, 8.0);
-                
-                // Box sides
-                glVertex3f(i, -0.1, -8.0);
-                glVertex3f(i, 2.0, -8.0);
-                
-                glVertex3f(i, -0.1, 8.0);
-                glVertex3f(i, 2.0, 8.0);
-            }
+    for (int i = 0; i < 100; i++) {
+        if (i % 10) {
+            glColor3f(0.2, 0.2, 0.2);
             
+            // Basic line
+            glVertex3f(i, -0.1, -4.0);
+            glVertex3f(i, -0.1, 4.0);
+            
+        } else {
+            glColor3f(0.2, 0.4, 0.2);
+            
+            // Box bottom
+            glVertex3f(i, -0.1, -8.0);
+            glVertex3f(i, -0.1, 8.0);
+            
+            // Box sides
+            glVertex3f(i, -0.1, -8.0);
+            glVertex3f(i, 2.0, -8.0);
+            
+            glVertex3f(i, -0.1, 8.0);
+            glVertex3f(i, 2.0, 8.0);
         }
+        
+    }
     glEnd();
     
     // Draw the creature
@@ -305,13 +304,15 @@ int main(int argc, char** argv) {
         }
         
         // Genetic algorithm optimization
+        double startTime = Runtime();
         printf("Seed %d\n", Seed);
         int generation = 1;
-        while (generation < 250) {
+        while (generation < 100) {
             genetic_Generation(&Population);
             Creature = (CREATURE *)genetic_Best(&Population);
             printf("Generation %d: ", generation);
-            printf("Fitness %.2f\n", genetic_BestFitness(&Population));
+            printf("Fitness %0.2f, ", genetic_BestFitness(&Population));
+            printf("Time %0.2lf\n", Runtime() - startTime);
             generation++;
         }
         
@@ -320,7 +321,7 @@ int main(int argc, char** argv) {
         sprintf(filename, "%d_%d.creature", Seed, generation);
         FILE *file = fopen(filename, "wb");
         if (file) {
-            printf("Writing best creature to \"%s\"\n", filename);
+            printf("Writing best creature to \"%s\".\n", filename);
             fwrite(Creature, sizeof(CREATURE), 1, file);
             fclose(file);
         }
@@ -329,7 +330,7 @@ int main(int argc, char** argv) {
         // Load the file
         FILE *file = fopen(argv[1], "rb");
         if (!file) {
-            printf("Failed to open \"%s\"\n", argv[1]);
+            printf("Failed to open \"%s\".\n", argv[1]);
             exit(-1);
         }
         fread(&Test, sizeof(CREATURE), 1, file);
