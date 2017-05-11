@@ -640,14 +640,16 @@ static inline VECTOR NodeColor(const CREATURE *creature, int index) {
     const NODE *node = &creature->nodes[index];
     VECTOR color = {0.0, 0.0, 0.0};
     
+    // Blue if the node is on the ground.
+    if (node->position.y < 0.1) {
+        color.x = 0.0;
+        color.y = 1.0 - (node->friction - MIN_FRICTION)/(MAX_FRICTION - MIN_FRICTION);
+        color.z = 1.0;
+    }
     // Red if the creature is dead.
     if (creature->energy >= MAX_ENERGY) {
         color.x = 1.0;
-    }
-    // Blue if the node is on the ground.
-    if (node->position.y < 0.1) {
-        color.x = color.y = 1.0 - (node->friction - MIN_FRICTION)/(MAX_FRICTION - MIN_FRICTION);
-        color.z = 1.0;
+        color.y = 0.0;
     }
     
     // White else
