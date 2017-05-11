@@ -36,7 +36,7 @@
 #define GRAVITY -1.0
 
 /// Damping force between springs in the creatures.
-#define DAMPING 1.5
+#define DAMPING 2.0
 
 /// Maximum number of mutations per creature.
 #define MAX_MUTATIONS 4
@@ -44,11 +44,11 @@
 /// Frictional force of the ground.
 #define FRICTION 20.0
 
-/// Number of trials to evaluate fitness.
-#define FITNESS_TRIALS 10
+/// Drag force of the air
+#define DRAG 0.1
 
 /// Maximum energy expenditure.
-#define MAX_ENERGY 65536
+#define MAX_ENERGY 2048
 
 //**************************************************************
 /// The system integrator
@@ -502,6 +502,11 @@ static void creature_UpdateFull(CREATURE *creature, float dt) {
         // Skip nodes that aren't in collision with the ground
         NODE *node = &creature->nodes[i];
         
+        // Apply the drag force based on velocity.
+        VECTOR drag = node->velocity;
+        vector_Multiply(&drag, -DRAG);
+        vector_Add(&node->acceleration, &drag);
+        
         // No friction applied to nodes that aren't on the ground
         // or nodes that are frictionless.
         if (!iszero(node->position.y) || iszero(node->friction)) {
@@ -623,100 +628,6 @@ bool creature_Rest(CREATURE *creature, float dt) {
         }
     }
     return true;
-}
-
-/**********************************************************//**
- * @brief Computes the average NODE position.
- * @param creature: The creature to inspect.
- * @return The average position of the creature's NODEs.
- **************************************************************/
-static inline VECTOR AveragePosition(const CREATURE *creature) {
-    VECTOR total = {0.0, 0.0, 0.0};
-    for (int i = 0; i < creature->nNodes; i++) {
-        vector_Add(&total, &creature->nodes[i].position);
-    }
-    vector_Multiply(&total, 1.0 / creature->nNodes);
-    return total;
-}
-
-/**********************************************************//**
- * @brief Computes the average NODE velocity.
- * @param creature: The creature to inspect.
- * @return The average velocity of the creature's NODEs.
- **************************************************************/
-static inline VECTOR AverageVelocity(const CREATURE *creature) {
-    VECTOR total = {0.0, 0.0, 0.0};
-    for (int i = 0; i < creature->nNodes; i++) {
-        vector_Add(&total, &creature->nodes[i].velocity);
-    }
-    vector_Multiply(&total, 1.0 / creature->nNodes);
-    return total;
-}
-
-/**********************************************************//**
- * @brief Models the creature walking forward using its
- * MOTION. This is repeated FITNESS_TRIALS times for
- * an averaging effect. The fitness is based on the total
- * distance travelled in the X-direction (positive), and is
- * negatively impacted by significant motion in the Y and Z
- * directions.
- * @param creature: The creature to inspect.
- * @return The fitness of the walk animation.
- **************************************************************/
-static float WalkFitness(CREATURE *creature) {
-    // Evaluate the creature's walking fitness. To do this we
-    // will loop the walking animation ten times
-    VECTOR start = AveragePosition(creature);
-    VECTOR end;
-    
-    // Count all positive x motions. However, penalize if there
-    // is tons of variance in the Y and Z directions: we only
-    // want to go forwards (and repeatably so).
-    float xMotionTotal = 0.0;
-    float yMotionMagnitudeTotal = 0.0;
-    float zMotionMagnitudeTotal = 0.0;
-    
-    // Do the given number of trials subsequently without
-    // resetting the creature.
-    for (int trial = 0; trial < FITNESS_TRIALS; trial++) {
-        // Perform a whole cycle of the animation
-        creature_Animate(creature, BEHAVIOR_TIME);
-        
-        // Sample the difference again
-        end = AveragePosition(creature);
-        VECTOR delta = end;
-        vector_Subtract(&delta, &start);
-        xMotionTotal += delta.x;
-        yMotionMagnitudeTotal += fabs(delta.y);
-        zMotionMagnitudeTotal += fabs(delta.z);
-        start = end;
-    }
-    
-    // Get the final fitness
-    float totalFitness = xMotionTotal - yMotionMagnitudeTotal - zMotionMagnitudeTotal;
-    return totalFitness / FITNESS_TRIALS;
-}
-
-/*============================================================*
- * Overall fitness function
- *============================================================*/
-float creature_Fitness(CREATURE *creature) {
-    // Reset the creature for evaluation purposes, so the
-    // creature always begins at rest and there are no weird
-    // initial spasms.
-    creature_Reset(creature);
-    
-    // Check memoized fitness table
-    float fitness = creature->fitness;
-    if (fitness != FITNESS_INVALID) {
-        return fitness;
-    }
-    
-    // We actually need to evaluate the fitness
-    // Store the fitness in the memo table
-    fitness = WalkFitness(creature);
-    creature->fitness = fitness;
-    return fitness;
 }
 
 /**********************************************************//**

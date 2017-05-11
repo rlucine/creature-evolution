@@ -172,14 +172,6 @@ extern void creature_Animate(CREATURE *creature, float dt);
 extern bool creature_Rest(CREATURE *creature, float dt);
 
 /**********************************************************//**
- * @brief Gets the fitness of the given behavior. This uses
- * a memo table in each creature to avoid recomputation.
- * @param creature: The creature to inspect.
- * @return The fitness of that behavior.
- **************************************************************/
-extern float creature_Fitness(CREATURE *creature);
-
-/**********************************************************//**
  * @brief Draw the creature on the screen.
  * @param creature: The creature to render.
  **************************************************************/
