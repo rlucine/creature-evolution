@@ -9,6 +9,7 @@
 // Standard library
 #include <stdbool.h>        // bool
 #include <time.h>           // time
+#include <string.h>         // strcpy, strcmp
 
 // External libraries
 #ifdef WINDOWS
@@ -338,7 +339,7 @@ static float EvaluateFitness(void *entity) {
  * @brief Random creature generation adapter function.
  * @param entity: The CREATURE to generate.
  **************************************************************/
-static void random(void *entity) {
+static void create(void *entity) {
     CREATURE *creature = (CREATURE *)entity;
     creature_CreateRandom(creature);
 }
@@ -389,7 +390,7 @@ int main(int argc, char** argv) {
     GENETIC_REQUEST request = {
         .entitySize = sizeof(CREATURE),
         .populationSize = 1000,
-        .random = &random,
+        .random = &create,
         .breed = &breed,
         .fitness = EvaluateFitness,
     };
@@ -456,7 +457,8 @@ int main(int argc, char** argv) {
                 printf("Failed to open \"%s\".\n", argv[1]);
                 exit(-1);
             }
-            fread(&Test, sizeof(CREATURE), 1, file);
+            size_t nRead = fread(&Test, sizeof(CREATURE), 1, file);
+            (void)nRead;
             fclose(file);
             Creature = &Test;
         }
