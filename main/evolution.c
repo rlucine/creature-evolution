@@ -56,29 +56,6 @@ static bool Rest;           ///< Whether the creature is at rest.
 }
 
 /**********************************************************//**
- * @brief Controls the camera's zoom and rotation. This
- * animates the camera using a turntable style.
- * @param key: The key that was pressed. This assumes the arrow
- * keys are used (left/right to rotate, up/down to zoom).
- * @param mouseX: Mouse X position when the key was pressed.
- * This is ignored.
- * @param mouseY: Mouse Y position when the key was pressed.
- * This is ignored.
- **************************************************************/
-static void keyboard(int key, int mouseX, int mouseY) {
-    (void)mouseX;
-    (void)mouseY;
-    
-    // Control the camera's zoom and rotation
-    if (key == GLUT_KEY_LEFT) {
-        CameraTheta -= 4;
-    } else if (key == GLUT_KEY_RIGHT) {
-        CameraTheta += 4;
-    }
-    glutPostRedisplay();
-}
-
-/**********************************************************//**
  * @brief Render the current screen.
  **************************************************************/
 static void render(void) {
@@ -87,11 +64,23 @@ static void render(void) {
     
     // Camera position
     float totalX = 0.0;
+    float totalZ = 0.0;
     for (int i = 0; i < Creature->nNodes; i++) {
         totalX += Creature->nodes[i].position.x;
+        totalZ += Creature->nodes[i].position.z;
     }
     float averageX = totalX / Creature->nNodes;
+    float averageZ = totalZ / Creature->nNodes;
     CameraX = (CameraX + averageX) / 2.0;
+    
+    // Camera Rotation
+    if (averageZ > 5) {
+        CameraTheta = 180;
+    } else if (averageZ < -5) {
+        CameraTheta = 360;
+    } else {
+        CameraTheta = 360-(averageZ+5)*18;
+    }
     
     // Set the camera position
     glMatrixMode(GL_MODELVIEW);
@@ -110,7 +99,7 @@ static void render(void) {
     
     // Draw the floor
     glBegin(GL_LINES);
-    for (int i = 0; i < 100; i++) {
+    for (int i = (averageX - 10); i < (averageX + 30); i++) {
         if (i % 10) {
             glColor3f(0.2, 0.2, 0.2);
             
@@ -200,7 +189,6 @@ static bool setup(int argc, char **argv) {
     // Initialize glut callbacks
     glutDisplayFunc(&render);
     glutIdleFunc(&update);
-    glutSpecialFunc(&keyboard);
     
     // Initialize glew
     glewExperimental = GL_TRUE;
