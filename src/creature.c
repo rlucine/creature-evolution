@@ -646,6 +646,7 @@ static inline VECTOR NodeColor(const CREATURE *creature, int index) {
     }
     // Blue if the node is on the ground.
     if (node->position.y < 0.1) {
+        color.x = color.y = 1.0 - (node->friction - MIN_FRICTION)/(MAX_FRICTION - MIN_FRICTION);
         color.z = 1.0;
     }
     
