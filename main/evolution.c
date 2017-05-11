@@ -29,7 +29,7 @@
 #define CLIP_FAR 100.0      ///< Location of the far clipping plane.
 #define WINDOW_WIDTH 800    ///< The width of the screen.
 #define WINDOW_HEIGHT 600   ///< The height of the screen.
-#define FITNESS_TRIALS 10   /// Number of trials to evaluate fitness.
+#define FITNESS_TRIALS 10   ///< Number of trials to evaluate fitness.
 
 //**************************************************************
 static GENETIC Population;  ///< Genetic algorithm data.
@@ -307,10 +307,12 @@ static float WalkFitness(CREATURE *creature) {
     return -totalFitness / FITNESS_TRIALS;
 }
 
-/*============================================================*
- * Overall fitness function
- *============================================================*/
-float EvaluateFitness(void *entity) {
+/**********************************************************//**
+ * @brief Computes the fitness.
+ * @param entity: The creature to evaluate.
+ * @return The fitness, with smaller values being better.
+ **************************************************************/
+static float EvaluateFitness(void *entity) {
     // Creature cast
     CREATURE *creature = (CREATURE *)entity;
     
