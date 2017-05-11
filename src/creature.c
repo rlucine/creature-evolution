@@ -664,10 +664,6 @@ static inline VECTOR AverageVelocity(const CREATURE *creature) {
  * @return The fitness of the walk animation.
  **************************************************************/
 static float WalkFitness(CREATURE *creature) {
-    // Allow creature to approach rest so we don;t overestimate
-    // on accident.
-    while (creature_Rest(creature, BEHAVIOR_TIME));
-    
     // Evaluate the creature's walking fitness. To do this we
     // will loop the walking animation ten times
     VECTOR start = AveragePosition(creature);
@@ -693,6 +689,7 @@ static float WalkFitness(CREATURE *creature) {
         xMotionTotal += delta.x;
         yMotionMagnitudeTotal += fabs(delta.y);
         zMotionMagnitudeTotal += fabs(delta.z);
+        start = end;
     }
     
     // Get the final fitness
