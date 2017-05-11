@@ -100,7 +100,21 @@ static void render(void) {
     // Draw the floor
     glBegin(GL_LINES);
     for (int i = (averageX - 10); i < (averageX + 30); i++) {
-        if (i % 10) {
+        if (i == 0) {
+            glColor3f(0.4, 0.2, 0.2);
+            
+            // Box bottom
+            glVertex3f(i, -0.1, -8.0);
+            glVertex3f(i, -0.1, 8.0);
+            
+            // Box sides
+            glVertex3f(i, -0.1, -8.0);
+            glVertex3f(i, 4.0, -8.0);
+            
+            glVertex3f(i, -0.1, 8.0);
+            glVertex3f(i, 4.0, 8.0);
+            
+        } else if (i % 10) {
             glColor3f(0.2, 0.2, 0.2);
             
             // Basic line
@@ -111,15 +125,15 @@ static void render(void) {
             glColor3f(0.2, 0.4, 0.2);
             
             // Box bottom
-            glVertex3f(i, -0.1, -8.0);
-            glVertex3f(i, -0.1, 8.0);
+            glVertex3f(i, -0.1, -6.0);
+            glVertex3f(i, -0.1, 6.0);
             
             // Box sides
-            glVertex3f(i, -0.1, -8.0);
-            glVertex3f(i, 2.0, -8.0);
+            glVertex3f(i, -0.1, -6.0);
+            glVertex3f(i, 2.0, -6.0);
             
-            glVertex3f(i, -0.1, 8.0);
-            glVertex3f(i, 2.0, 8.0);
+            glVertex3f(i, -0.1, 6.0);
+            glVertex3f(i, 2.0, 6.0);
         }
         
     }
