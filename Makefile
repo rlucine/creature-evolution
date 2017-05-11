@@ -13,7 +13,7 @@ DFLAGS := -MP -MMD
 LFLAGS := -s -lm
 INCLUDE := 
 LIBRARY := 
-IMPORTANT :=
+IMPORTANT := data lib
 
 #======== Source code setup ========#
 # Directory for all project files and
