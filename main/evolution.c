@@ -113,9 +113,9 @@ static void render(void) {
     
     // Draw the floor
     glBegin(GL_LINES);
-    for (int i = (averageX - 10); i < (averageX + 30); i++) {
+    for (int i = (averageX - 10); i < (averageX + 40); i++) {
         if (i == 0) {
-            glColor3f(0.4, 0.2, 0.2);
+            glColor3f(0.6, 0.2, 0.2);
             
             // Box bottom
             glVertex3f(i, -0.1, -8.0);
@@ -136,7 +136,7 @@ static void render(void) {
             glVertex3f(i, -0.1, 4.0);
             
         } else {
-            glColor3f(0.2, 0.4, 0.2);
+            glColor3f(0.2, 0.6, 0.2);
             
             // Box bottom
             glVertex3f(i, -0.1, -6.0);

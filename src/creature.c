@@ -36,7 +36,7 @@
 #define GRAVITY -1.0
 
 /// Damping force between springs in the creatures.
-#define DAMPING 2.0
+#define DAMPING 1.5
 
 /// Maximum number of mutations per creature.
 #define MAX_MUTATIONS 4
@@ -45,7 +45,7 @@
 #define FRICTION 20.0
 
 /// Drag force of the air
-#define DRAG 0.1
+#define DRAG 0.02
 
 /// Maximum energy expenditure.
 #define MAX_ENERGY 2048
