@@ -1,3 +1,3 @@
-[submodule "lib/libwes64"]
-	path = lib/libwes64
-	url = https://github.com/Wes64/libwes64.git
+[submodule "lib/libshared"]
+	path = lib/libshared
+	url = https://github.com/xyRena/libshared.git

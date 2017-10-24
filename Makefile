@@ -57,11 +57,11 @@ else
 	LIBRARY += -lglew32 -lglut32win -lopengl32 -lglu32
 endif
 
-#========== libwes64 Setup =========#
+#========== libshared Setup =========#
 LIB_DIR := lib
-LIBWES64_DIR := $(LIB_DIR)/libwes64
-INCLUDE += -I$(LIBWES64_DIR)/include
-LIBRARY += -L$(LIBWES64_DIR)/bin -lwes64
+LIBSHARED_DIR := $(LIB_DIR)/libshared
+INCLUDE += -I$(LIBSHARED_DIR)/include
+LIBRARY += -L$(LIBSHARED_DIR)/bin -lshared
 
 #============ Main files ===========#
 # Standalone text executable sources
@@ -86,7 +86,7 @@ IMPORTANT += $(DOXYFILE) $(DOXFILES)
 #============== Rules ==============#
 # Default: just make executables
 .PHONY: default
-default: $(BUILD_DIR) libwes64 $(ARCHIVE) $(EXECUTABLES)
+default: $(BUILD_DIR) libshared $(ARCHIVE) $(EXECUTABLES)
 
 # Make just the tests
 .PHONY: tests
@@ -96,10 +96,10 @@ tests: $(BUILD_DIR) $(ARCHIVE) $(TESTS)
 .PHONY: all
 all: default tests
 
-# Make libwes64
-.PHONY: libwes64
-libwes64:
-	$(MAKE) -C $(LIBWES64_DIR) default
+# Make libshared
+.PHONY: libshared
+libshared:
+	$(MAKE) -C $(LIBSHARED_DIR) default
 
 # Put all the .o files in the build directory
 $(BUILD_DIR):
@@ -143,6 +143,7 @@ $(ARCHIVE): $(OFILES)
 .PHONY: clean
 clean:
 	-rm -rf $(BUILD_DIR) $(EXECUTABLES) $(TESTS) $(ARCHIVE)
+	$(MAKE) -C $(LIBSHARED_DIR) clean
 	
 #============= Archive =============#
 # Package all the files into a tar.
