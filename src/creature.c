@@ -3,7 +3,7 @@
  * @brief Implementation of generic mass-spring creatures
  * as well as their behaviors.
  * @version 1.0
- * @author Alec Shinomiya
+ * @author Rena Shinomiya
  * @date April 2017
  **************************************************************/
 

@@ -2,7 +2,7 @@
  * @file main.dox
  * @brief Doxygen file containing instructions for the main
  * page html layout.
- * @author Alec Shinomiya
+ * @author Rena Shinomiya
  * @mainpage
  * @htmlinclude doxygen/main.html
  **************************************************************/

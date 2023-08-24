@@ -2,7 +2,7 @@
  * @file evolution.c
  * @brief Driver program for the CREATURE evolution simulator.
  * @version 1.0
- * @author Alec Shinomiya
+ * @author Rena Shinomiya
  * @date March 2017
  **************************************************************/
 

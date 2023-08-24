@@ -2,7 +2,7 @@
  * @file genetic.h
  * @brief Declaration of a general genetic algorithm.
  * @version 1.0
- * @author Alec Shinomiya
+ * @author Rena Shinomiya
  * @date April 2017
  **************************************************************/
 
